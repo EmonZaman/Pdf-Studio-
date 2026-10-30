@@ -10,6 +10,7 @@ import { PdfCanvasStack } from "./PdfCanvasStack";
 interface LivePreviewPaneProps {
   template: DocumentTemplate;
   data: DocumentData;
+  onDownload: () => void;
 }
 
 const REBUILD_DELAY_MS = 300;
@@ -18,7 +19,7 @@ const REBUILD_DELAY_MS = 300;
  * Real vector PDF preview. Every edit re-renders the actual PDF output
  * (the same bytes that get exported), drawn page by page with pdf.js.
  */
-export const LivePreviewPane: React.FC<LivePreviewPaneProps> = ({ template, data }) => {
+export const LivePreviewPane: React.FC<LivePreviewPaneProps> = ({ template, data, onDownload }) => {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [isRendering, setIsRendering] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,22 +48,6 @@ export const LivePreviewPane: React.FC<LivePreviewPaneProps> = ({ template, data
       clearTimeout(timer);
     };
   }, [template, data]);
-
-  const handleDownload = async () => {
-    try {
-      const bytes = await generatePdf(template, data);
-      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${template.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      alert("Failed to export PDF: " + (err instanceof Error ? err.message : String(err)));
-    }
-  };
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-neutral-200/70">
@@ -94,7 +79,7 @@ export const LivePreviewPane: React.FC<LivePreviewPaneProps> = ({ template, data
             {pageCount} {pageCount === 1 ? "page" : "pages"}
           </span>
           <button
-            onClick={handleDownload}
+            onClick={onDownload}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-700 text-white rounded-md text-xs font-semibold shadow-xs transition-colors"
           >
             <Download className="w-3.5 h-3.5" />

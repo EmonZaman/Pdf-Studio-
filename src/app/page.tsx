@@ -5,7 +5,9 @@ import { DocumentTemplate, DocumentData, CanvasElement, UnitType } from "@/types
 import { DEFAULT_TEMPLATES } from "@/lib/templates";
 import { computeDocumentLayout } from "@/lib/engine/layout";
 import { generatePdf } from "@/lib/engine/pdf-generator";
-import { StudioHeader } from "@/components/editor/StudioHeader";
+import { StudioHeader, ViewMode } from "@/components/editor/StudioHeader";
+import { StatementHistory } from "@/components/history/StatementHistory";
+import type { StatementHistoryEntry } from "@/lib/history-storage";
 import { Toolbar } from "@/components/editor/Toolbar";
 import { LayerPanel } from "@/components/editor/LayerPanel";
 import { Canvas } from "@/components/editor/Canvas";
@@ -34,7 +36,11 @@ export default function StudioPage() {
   );
 
   // Active view mode
-  const [activeView, setActiveView] = useState<"editor" | "form" | "preview">("form");
+  const [activeView, setActiveView] = useState<ViewMode>("form");
+
+  // Saved statement history (server-side) and its loading state
+  const [savedStatements, setSavedStatements] = useState<StatementHistoryEntry[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   // Selection & Zoom
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -281,7 +287,7 @@ export default function StudioPage() {
   const handleExportPdf = async () => {
     try {
       const bytes = await generatePdf(template, data);
-      const blob = new Blob([bytes as any], { type: "application/pdf" });
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -289,10 +295,93 @@ export default function StudioPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert("Failed to export PDF: " + err.message);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      recordStatement();
+    } catch (err) {
+      alert("Failed to export PDF: " + (err instanceof Error ? err.message : String(err)));
     }
+  };
+
+  // ---- Statement history ----
+  const loadHistory = useCallback(async () => {
+    setIsHistoryLoading(true);
+    try {
+      const res = await fetch("/api/history");
+      const json = await res.json();
+      if (json.success) setSavedStatements(json.entries);
+    } catch (err) {
+      console.error("Could not load history", err);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, []);
+
+  // Every export is saved so the statement can be reopened later
+  const recordStatement = async () => {
+    const accountName = String(data.customerName || "");
+    const accountNo = String(data.accountNo || "");
+    const period = [data.openingDate, data.statementEndDate].filter(Boolean).join(" to ");
+    try {
+      const res = await fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: [accountName, accountNo, data.statementEndDate].filter(Boolean).join(" · ") || template.name,
+          templateId: template.id,
+          bankName: template.name,
+          accountName,
+          accountNo,
+          period,
+          data,
+        }),
+      });
+      if (!res.ok) throw new Error(`History save failed (${res.status})`);
+    } catch (err) {
+      console.error("Could not record statement in history", err);
+    }
+  };
+
+  const handleOpenStatement = (entry: StatementHistoryEntry) => {
+    const found = DEFAULT_TEMPLATES[entry.templateId]?.template;
+    if (!found) {
+      alert("The bank template for this statement is no longer available.");
+      return;
+    }
+    const tpl: DocumentTemplate = JSON.parse(JSON.stringify(found));
+    setTemplate(tpl);
+    setHistory([tpl]);
+    setHistoryIndex(0);
+    setSelectedId(null);
+    setData(entry.data);
+    setCurrentPage(1);
+    setActiveView("form");
+  };
+
+  const handleRenameStatement = async (entry: StatementHistoryEntry, label: string) => {
+    const res = await fetch(`/api/history/${entry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label }),
+    });
+    if (res.ok) {
+      setSavedStatements((prev) => prev.map((e) => (e.id === entry.id ? { ...e, label } : e)));
+    } else {
+      alert("Could not rename this statement.");
+    }
+  };
+
+  const handleDeleteStatement = async (entry: StatementHistoryEntry) => {
+    const res = await fetch(`/api/history/${entry.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setSavedStatements((prev) => prev.filter((e) => e.id !== entry.id));
+    } else {
+      alert("Could not delete this statement.");
+    }
+  };
+
+  const handleSignOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.assign("/login");
   };
 
   // Save template to server
@@ -363,6 +452,8 @@ export default function StudioPage() {
     setCurrentPage(1);
   };
 
+  const templateMap = Object.fromEntries(Object.entries(DEFAULT_TEMPLATES).map(([id, v]) => [id, v.template]));
+
   const selectedElement = template.elements.find((el) => el.id === selectedId) || null;
 
   return (
@@ -373,7 +464,11 @@ export default function StudioPage() {
         templates={templates}
         onSelectTemplate={handleSelectTemplate}
         activeView={activeView}
-        setActiveView={setActiveView}
+        setActiveView={(view) => {
+          setActiveView(view);
+          if (view === "history") loadHistory();
+        }}
+        onSignOut={handleSignOut}
         onOpenTemplateManager={() => setIsTemplateManagerOpen(true)}
         onOpenImportPdfModal={() => setIsPdfImportModalOpen(true)}
         onExportPdf={handleExportPdf}
@@ -466,9 +561,21 @@ export default function StudioPage() {
 
           {/* Right half: live PDF output */}
           <div className="h-[65vh] lg:h-auto lg:flex-none lg:w-1/2 min-h-0 min-w-0 border-t lg:border-t-0 lg:border-l border-neutral-200">
-            <LivePreviewPane template={template} data={data} />
+            <LivePreviewPane template={template} data={data} onDownload={handleExportPdf} />
           </div>
         </div>
+      )}
+
+      {/* VIEW MODE 4: STATEMENT HISTORY */}
+      {activeView === "history" && (
+        <StatementHistory
+          entries={savedStatements}
+          isLoading={isHistoryLoading}
+          templates={templateMap}
+          onOpen={handleOpenStatement}
+          onRename={handleRenameStatement}
+          onDelete={handleDeleteStatement}
+        />
       )}
 
       {/* VIEW MODE 3: LIVE VECTOR PDF PREVIEW */}

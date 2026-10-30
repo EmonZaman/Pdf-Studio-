@@ -13,22 +13,26 @@ import {
   Check,
   ChevronDown,
   Upload,
+  History,
+  LogOut,
 } from "lucide-react";
 
-type ViewMode = "editor" | "form" | "preview";
+export type ViewMode = "editor" | "form" | "preview" | "history";
 
 const MODES: { id: ViewMode; label: string; icon: React.ElementType }[] = [
   { id: "form", label: "Edit & Preview", icon: Sliders },
   { id: "editor", label: "Layout", icon: Layers },
   { id: "preview", label: "Full PDF", icon: Eye },
+  { id: "history", label: "History", icon: History },
 ];
 
 interface StudioHeaderProps {
   template: DocumentTemplate;
   templates: DocumentTemplate[];
   onSelectTemplate: (t: DocumentTemplate) => void;
-  activeView: "editor" | "form" | "preview";
-  setActiveView: (view: "editor" | "form" | "preview") => void;
+  activeView: ViewMode;
+  setActiveView: (view: ViewMode) => void;
+  onSignOut: () => void;
   onOpenTemplateManager: () => void;
   onOpenImportPdfModal: () => void;
   onExportPdf: () => void;
@@ -43,6 +47,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onSelectTemplate,
   activeView,
   setActiveView,
+  onSignOut,
   onOpenTemplateManager,
   onOpenImportPdfModal,
   onExportPdf,
@@ -60,7 +65,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
           </div>
           <div>
             <div className="font-extrabold text-sm tracking-tight text-neutral-900 flex items-center gap-1.5">
-              <span>GTPdfStudio</span>
+              <span>GT-Pdf_Studio</span>
               <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded font-semibold uppercase">
                 Pro
               </span>
@@ -125,6 +130,14 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        <button
+          onClick={onSignOut}
+          title="Sign out"
+          aria-label="Sign out"
+          className="p-1.5 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 border border-transparent hover:border-neutral-200"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
         <button
           onClick={onOpenImportPdfModal}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-xs font-semibold border border-blue-200 transition-colors"

@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "category": "banking",
     "createdAt": "2026-10-29T00:00:00Z",
-    "updatedAt": "2026-10-29T19:27:09.022Z",
+    "updatedAt": "2026-10-29T00:00:00Z",
     "pageSettings": {
       "size": "LETTER",
       "width": 612,
@@ -194,11 +194,11 @@
         "width": 200.45,
         "height": 20,
         "style": {
-          "fontFamily": "Helvetica",
           "fontSize": 16,
           "fontWeight": "bold",
+          "textAlign": "left",
           "color": "#0a0a0a",
-          "textAlign": "left"
+          "fontFamily": "Helvetica"
         },
         "content": "Statement of Account",
         "pageTarget": "all"
@@ -378,10 +378,10 @@
         "width": 132.5,
         "height": 22,
         "style": {
-          "fontSize": 7,
-          "color": "#888888",
           "textAlign": "right",
-          "lineHeight": 1.35
+          "lineHeight": 1.35,
+          "fontSize": 7,
+          "color": "#888888"
         },
         "content": "Opening Balance as of {{openingDate}}\n{{openingBalance}}",
         "pageTarget": "first"
@@ -409,10 +409,10 @@
         "width": 131.8,
         "height": 22,
         "style": {
-          "fontSize": 7,
-          "color": "#888888",
           "textAlign": "right",
-          "lineHeight": 1.35
+          "lineHeight": 1.35,
+          "fontSize": 7,
+          "color": "#888888"
         },
         "content": "Total Deposits\n{{totalDeposits}}",
         "pageTarget": "first"
@@ -440,10 +440,10 @@
         "width": 131.9,
         "height": 22,
         "style": {
-          "fontSize": 7,
-          "color": "#888888",
           "textAlign": "right",
-          "lineHeight": 1.35
+          "lineHeight": 1.35,
+          "fontSize": 7,
+          "color": "#888888"
         },
         "content": "Total Withdrawals\n{{totalWithdrawals}}",
         "pageTarget": "first"
@@ -471,10 +471,10 @@
         "width": 139,
         "height": 22,
         "style": {
-          "fontSize": 7,
-          "color": "#888888",
           "textAlign": "right",
-          "lineHeight": 1.35
+          "lineHeight": 1.35,
+          "fontSize": 7,
+          "color": "#888888"
         },
         "content": "Available Balance as of {{statementEndDate}}\n{{availableBalance}}",
         "pageTarget": "first"
@@ -551,6 +551,13 @@
           "fontSize": 6,
           "color": "#000000"
         },
+        "tableDataKey": "transactions",
+        "tableHeaderHeight": 18.64,
+        "tableRowHeight": 18.436,
+        "tableHeaderBg": "transparent",
+        "tableHeaderTextColor": "#0a0a0a",
+        "tableBorderColor": "#ed1c24",
+        "showTableHeader": true,
         "tableColumns": [
           {
             "id": "c1",
@@ -598,13 +605,6 @@
             "format": "currency"
           }
         ],
-        "tableDataKey": "transactions",
-        "tableRowHeight": 18.436,
-        "tableHeaderHeight": 18.64,
-        "tableHeaderBg": "transparent",
-        "tableHeaderTextColor": "#0a0a0a",
-        "tableBorderColor": "#ed1c24",
-        "showTableHeader": true,
         "pageTarget": "all"
       },
       {
@@ -721,8 +721,8 @@
         "height": 10,
         "style": {
           "fontSize": 7,
-          "color": "#797979",
-          "textAlign": "right"
+          "textAlign": "right",
+          "color": "#797979"
         },
         "content": "Page {{pageNumber}} of {{totalPages}}",
         "pageTarget": "all"

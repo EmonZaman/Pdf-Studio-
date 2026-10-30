@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# statement history contains customer data
+/data/history.json
+/data/history.json.tmp
