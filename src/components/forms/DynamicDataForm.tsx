@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { DocumentTemplate, DocumentData, TableColumn } from "@/types/template";
 import { interpolateString } from "@/lib/interpolate";
+import { VERIFY_QR_TEMPLATE } from "@/lib/verify-config";
 import { generateQrDataUrl } from "@/lib/engine/qr-helper";
 import {
   recalculateStatementBalances,
@@ -10,6 +11,13 @@ import {
   parseAmount,
   formatCurrency,
 } from "@/lib/balance-calculator";
+import {
+  generateCityBankAccountNo,
+  generateCityBankReferenceNo,
+  isValidAccountNo,
+  isValidReferenceNo,
+} from "@/lib/statement-identity";
+import { VERIFY_URL } from "@/lib/verify-config";
 import {
   FileText,
   User,
@@ -25,6 +33,8 @@ import {
   CheckCircle2,
   Calendar,
   Lock,
+  Zap,
+  ExternalLink,
 } from "lucide-react";
 
 interface DynamicDataFormProps {
@@ -87,7 +97,7 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
   const columns: TableColumn[] = tableElem?.tableColumns || [];
 
   // QR content exactly as the PDF engine resolves it
-  const qrContent = interpolateString("{{verifyUrl}}?ref={{referenceNo}}", data, { pageNumber: 1, totalPages: 1 });
+  const qrContent = interpolateString(VERIFY_QR_TEMPLATE, data, { pageNumber: 1, totalPages: 1 });
 
   // Replace the generated QR with an uploaded PNG/JPG image (stored as a data URL)
   const handleQrUpload = (file: File | undefined) => {
@@ -148,6 +158,71 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
 
     onChange(updated);
   };
+
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+
+  const handleGenerateAccountNo = () => {
+    const newAcc = generateCityBankAccountNo();
+    onChange({
+      ...data,
+      accountNo: newAcc,
+    });
+    setIsRegistered(false);
+  };
+
+  const handleGenerateReferenceNo = () => {
+    const newRef = generateCityBankReferenceNo();
+    onChange({
+      ...data,
+      referenceNo: newRef,
+    });
+    setIsRegistered(false);
+  };
+
+  const handleGenerateBothUnique = () => {
+    const newAcc = generateCityBankAccountNo();
+    const newRef = generateCityBankReferenceNo();
+    onChange({
+      ...data,
+      accountNo: newAcc,
+      referenceNo: newRef,
+    });
+    setIsRegistered(false);
+  };
+
+  const handleRegisterStatement = async () => {
+    setIsRegistering(true);
+    try {
+      const accountName = String(data.customerName || "");
+      const accountNo = String(data.accountNo || "");
+      const period = [data.openingDate, data.statementEndDate].filter(Boolean).join(" to ");
+      const res = await fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: [accountName, accountNo, data.statementEndDate].filter(Boolean).join(" · ") || template.name,
+          templateId: template.id,
+          bankName: template.name,
+          accountName,
+          accountNo,
+          period,
+          data,
+        }),
+      });
+      if (res.ok) {
+        setIsRegistered(true);
+        setTimeout(() => setIsRegistered(false), 4000);
+      }
+    } catch (err) {
+      console.error("Could not register statement", err);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const baseVerifyUrl = data.verifyUrl || VERIFY_URL;
+  const verifyTestUrl = `${baseVerifyUrl}${baseVerifyUrl.includes("?") ? "&" : "?"}ref=${encodeURIComponent(String(data.referenceNo || ""))}&acc=${encodeURIComponent(String(data.accountNo || ""))}`;
 
   // Update a single table row cell while typing (without formatting inputs to prevent cursor jumping)
   const handleTableRowChange = (index: number, key: string, value: any) => {
@@ -441,16 +516,118 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                   </div>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Reference code (printed under the QR, and appended to the URL)
-                  </label>
-                  <input
-                    type="text"
-                    value={data.referenceNo || ""}
-                    onChange={(e) => handleFieldChange("referenceNo", e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 font-mono font-bold"
-                  />
+                {/* Statement Verification & Unique Credentials Card */}
+                <div className="md:col-span-2 p-4 bg-gradient-to-br from-red-50/40 via-white to-neutral-50 border border-red-200/70 rounded-xl space-y-4 shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-red-100/70 pb-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-red-600" />
+                        <h4 className="text-xs font-bold text-neutral-900">Statement Verification Credentials</h4>
+                      </div>
+                      <p className="text-[11px] text-neutral-500">
+                        Account number & reference code validate this statement at the verification portal.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGenerateBothUnique}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-100/70 hover:bg-red-200/70 rounded-lg transition-colors cursor-pointer"
+                      title="Generate unique 13-digit account number and unique 13-char reference code (0 + 12 alphanumeric)"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-red-600" />
+                      Generate Both Unique
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Account Number */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-neutral-800">
+                          Account Number
+                        </label>
+                        <span className="text-[10px] text-neutral-400 font-mono">13 digits numeric</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={data.accountNo || ""}
+                          onChange={(e) => handleFieldChange("accountNo", e.target.value)}
+                          placeholder="e.g. 1781920006484"
+                          className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs font-mono font-bold text-neutral-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleGenerateAccountNo}
+                          className="px-2.5 py-2 text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg border border-neutral-200 transition-colors whitespace-nowrap cursor-pointer"
+                          title="Generate fresh unique 13-digit City Bank account number"
+                        >
+                          ⚡ Generate
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Reference Code */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-neutral-800">
+                          Reference Code
+                        </label>
+                        <span className="text-[10px] text-neutral-400 font-mono">13 chars (starts with 0)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={data.referenceNo || ""}
+                          onChange={(e) => handleFieldChange("referenceNo", e.target.value.toUpperCase())}
+                          placeholder="e.g. 0RYYNJ4VANVZQ"
+                          className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs font-mono font-bold text-neutral-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleGenerateReferenceNo}
+                          className="px-2.5 py-2 text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg border border-neutral-200 transition-colors whitespace-nowrap cursor-pointer"
+                          title="Generate fresh unique 13-character reference code (0 + 12 alphanumeric)"
+                        >
+                          ⚡ Generate
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: Save / Register and Test Link */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-red-100/70 text-xs">
+                    <button
+                      type="button"
+                      onClick={handleRegisterStatement}
+                      disabled={isRegistering}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#ED1C24] hover:bg-[#d6161d] text-white rounded-lg font-semibold transition-colors shadow-2xs cursor-pointer"
+                    >
+                      {isRegistered ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                          <span>Registered for Verification!</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className={`w-3.5 h-3.5 ${isRegistering ? "animate-spin" : ""}`} />
+                          <span>Save & Register for Verification</span>
+                        </>
+                      )}
+                    </button>
+
+                    {verifyTestUrl && (
+                      <a
+                        href={verifyTestUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-700 hover:underline font-semibold"
+                      >
+                        <span>Open & Test Verification Page</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -492,15 +669,29 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Account Number
-                  </label>
-                  <input
-                    type="text"
-                    value={data.accountNo || ""}
-                    onChange={(e) => handleFieldChange("accountNo", e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-neutral-700">
+                      Account Number
+                    </label>
+                    <span className="text-[10px] text-neutral-400 font-mono">13 digits</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={data.accountNo || ""}
+                      onChange={(e) => handleFieldChange("accountNo", e.target.value)}
+                      placeholder="e.g. 1781920006484"
+                      className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs font-mono font-bold text-neutral-900 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateAccountNo}
+                      className="px-2.5 py-2 text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg border border-neutral-200 transition-colors whitespace-nowrap cursor-pointer"
+                      title="Generate fresh unique 13-digit City Bank account number"
+                    >
+                      ⚡ Unique
+                    </button>
+                  </div>
                 </div>
 
                 <div>

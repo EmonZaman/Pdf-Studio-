@@ -1,3 +1,5 @@
+import { VERIFY_URL } from "@/lib/verify-config";
+
 export const CITY_BANK_SAMPLE_DATA = {
   customerName: "MD. OMAR FARUQ CHOWDHURY",
   address: "51/52,GREEN ROAD,SUVASTU EDIFICE, FLAT-4D1,NEW MARKET,KALABAGAN, NEWMARKET, DHAKA, DHAKA",
@@ -5,7 +7,7 @@ export const CITY_BANK_SAMPLE_DATA = {
   accountType: "ISLAMIC SAVINGS A/C - DST",
   accountStatus: "ACTIVATED",
   branch: "KARWAN BAZAR BRANCH",
-  verifyUrl: "http://t.cbl.fyi/i/10/stmt",
+  verifyUrl: VERIFY_URL,
   referenceNo: "0RYYNJ4VANVZQ",
   openingDate: "01 Jan 2026",
   statementEndDate: "17 Oct 2026",

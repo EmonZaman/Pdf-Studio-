@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { addHistory, listHistory } from "@/lib/history-storage";
 
 export async function GET() {
-  return NextResponse.json({ success: true, entries: listHistory() });
+  return NextResponse.json({ success: true, entries: await listHistory() });
 }
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "templateId and data are required" }, { status: 400 });
   }
   const str = (v: unknown, max = 200) => (typeof v === "string" ? v.slice(0, max) : "");
-  const entry = addHistory({
+  const entry = await addHistory({
     label: str(body.label, 120) || `${str(body.bankName)} · ${str(body.accountName)}`,
     templateId: str(body.templateId),
     bankName: str(body.bankName),

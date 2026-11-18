@@ -367,7 +367,7 @@ export async function generatePdf(
             const black = rgb(0, 0, 0);
             page.drawText("Can't scan? Enter the reference number at the ", { x: 461.1, y: 707.88, size: 6, font: fontRegular, color: grey });
             page.drawText("URL below:", { x: 461.1, y: 699.904, size: 6, font: fontRegular, color: grey });
-            page.drawText(String(data.verifyUrl || "http://t.cbl.fyi/i/10/stmt"), { x: 461.1, y: 691.928, size: 6, font: fontRegular, color: black });
+            page.drawText(String(data.printVerifyUrl || "http://t.cbll.fyi/i/10/stmt"), { x: 461.1, y: 691.928, size: 6, font: fontRegular, color: black });
             continue;
           }
 

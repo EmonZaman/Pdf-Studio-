@@ -6,7 +6,7 @@ import {
   isLockedOut,
   isPasswordConfigured,
   recordFailure,
-  verifyPassword,
+  verifyAnyPassword,
 } from "@/lib/auth";
 
 function clientIp(req: NextRequest): string {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const password = typeof body?.password === "string" ? body.password : "";
 
-  if (!verifyPassword(password, process.env.GT_STUDIO_PASSWORD_HASH)) {
+  if (!verifyAnyPassword(password)) {
     recordFailure(ip);
     return NextResponse.json({ success: false, error: "Incorrect password." }, { status: 401 });
   }

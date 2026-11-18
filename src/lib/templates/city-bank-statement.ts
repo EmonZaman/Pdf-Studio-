@@ -1,4 +1,5 @@
 import { DocumentTemplate } from "@/types/template";
+import { VERIFY_QR_TEMPLATE, VERIFY_URL } from "@/lib/verify-config";
 
 export const CITY_BANK_TEMPLATE: DocumentTemplate = {
   id: "city-bank-statement",
@@ -29,7 +30,7 @@ export const CITY_BANK_TEMPLATE: DocumentTemplate = {
     { id: "f4", key: "accountType", label: "Account Type", type: "text", defaultValue: "ISLAMIC SAVINGS A/C - DST" },
     { id: "f5", key: "accountStatus", label: "Account Status", type: "text", defaultValue: "ACTIVATED" },
     { id: "f6", key: "branch", label: "Branch", type: "text", defaultValue: "KARWAN BAZAR BRANCH" },
-    { id: "f7", key: "verifyUrl", label: "Verification URL", type: "text", defaultValue: "http://t.cbl.fyi/i/10/stmt" },
+    { id: "f7", key: "verifyUrl", label: "Verification URL", type: "text", defaultValue: VERIFY_URL },
     { id: "f8", key: "referenceNo", label: "Reference Code", type: "text", defaultValue: "0RYYNJ4VANVZQ" },
     { id: "f9", key: "openingDate", label: "Opening Date", type: "text", defaultValue: "01 Jan 2026" },
     { id: "f10", key: "statementEndDate", label: "Statement End Date", type: "text", defaultValue: "17 Oct 2026" },
@@ -152,7 +153,7 @@ export const CITY_BANK_TEMPLATE: DocumentTemplate = {
       width: 61.8,
       height: 61.8,
       style: {},
-      qrData: "{{verifyUrl}}?ref={{referenceNo}}",
+      qrData: VERIFY_QR_TEMPLATE,
       pageTarget: "first",
     },
     {

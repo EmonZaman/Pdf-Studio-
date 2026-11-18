@@ -60,8 +60,18 @@ export function verifySessionToken(token: string | undefined, now = Date.now()):
   }
 }
 
+// One or more comma-separated hashes in GT_STUDIO_PASSWORD_HASHES (each hash is one valid password)
+function configuredHashes(): string[] {
+  const list = process.env.GT_STUDIO_PASSWORD_HASHES || process.env.GT_STUDIO_PASSWORD_HASH || "";
+  return list.split(",").map((h) => h.trim()).filter(Boolean);
+}
+
+export function verifyAnyPassword(password: string): boolean {
+  return configuredHashes().some((hash) => verifyPassword(password, hash));
+}
+
 export function isPasswordConfigured(): boolean {
-  return Boolean(process.env.GT_STUDIO_PASSWORD_HASH && process.env.GT_STUDIO_SESSION_SECRET);
+  return configuredHashes().length > 0 && Boolean(process.env.GT_STUDIO_SESSION_SECRET);
 }
 
 // Simple in-memory brake on password guessing: 5 failures per IP per 15 minutes.

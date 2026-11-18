@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { recalculateStatementBalances, sortTransactionsChronologically } from "@/lib/balance-calculator";
+import { VERIFY_URL } from "@/lib/verify-config";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,44 +15,25 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Parse PDF text using direct pdf-parse library with coordinate-aware pagerender
-    let text = "";
-    try {
-      const nodeRequire = eval("require");
-      const pdf = nodeRequire("pdf-parse/lib/pdf-parse.js");
-      const pagerender = (pageData: any) => {
-        return pageData.getTextContent().then((textContent: any) => {
-          let lastY: number | null = null;
-          let text = "";
-          for (const item of textContent.items) {
-            if (lastY === item.transform[5] || lastY === null) {
-              text += " " + item.str;
-            } else {
-              text += "\n" + item.str;
-            }
-            lastY = item.transform[5];
+    // Parse PDF text with pdf-parse, keeping one line per visual row (coordinate-aware pagerender).
+    // Imported statically so the serverless bundle includes it; there is no Python on Vercel.
+    const pagerender = (pageData: { getTextContent: () => Promise<{ items: { str: string; transform: number[] }[] }> }) => {
+      return pageData.getTextContent().then((textContent) => {
+        let lastY: number | null = null;
+        let text = "";
+        for (const item of textContent.items) {
+          if (lastY === item.transform[5] || lastY === null) {
+            text += " " + item.str;
+          } else {
+            text += "\n" + item.str;
           }
-          return text;
-        });
-      };
-      const parsed = await pdf(buffer, { pagerender });
-      text = parsed.text || "";
-    } catch (parseErr) {
-      console.warn("pdf-parse fallback to pypdf triggered:", parseErr);
-      const { execFileSync } = await import("child_process");
-      const fs = await import("fs");
-      const tmpPdf = `/tmp/extract-${Date.now()}.pdf`;
-      fs.writeFileSync(tmpPdf, buffer);
-      try {
-        text = execFileSync("python3", [
-          "-c",
-          "import pypdf, sys; r = pypdf.PdfReader(sys.argv[1]); print('\\n'.join(p.extract_text() for p in r.pages))",
-          tmpPdf,
-        ], { encoding: "utf-8" });
-      } finally {
-        if (fs.existsSync(tmpPdf)) fs.unlinkSync(tmpPdf);
-      }
-    }
+          lastY = item.transform[5];
+        }
+        return text;
+      });
+    };
+    const parsed = await pdfParse(buffer, { pagerender });
+    const text = parsed.text || "";
 
     if (!text || text.length < 50) {
       return NextResponse.json(
@@ -80,10 +63,13 @@ export async function POST(req: NextRequest) {
 
     // Extract Account Holder Name
     let customerName = "MD. MONIRUZZAMAN EMON";
-    const nameMatch =
-      text.match(/Page\s+1\s+of\s+\d+\s*\n+([^\n\r]+)/i) ||
-      text.match(/Page\s+\d+\s+of\s+\d+\s*\n+([A-Z\.\s]{3,50})\s+VERIFY/i) ||
-      text.match(/((?:MD\.|MR\.|MS\.|MRS\.)\s+[A-Z\.\s]{3,40})/i);
+    // The first line under "Page 1 of N" can be the transaction table header, so skip header-looking matches
+    const tableHeader = /DESCRIPTION|BALANCE|WITHDRAWAL|DEPOSIT|CHQ/i;
+    const nameMatch = [
+      text.match(/((?:MD\.|MR\.|MS\.|MRS\.)\s+[A-Z\.\s]{3,40})/i),
+      text.match(/Page\s+1\s+of\s+\d+\s*\n+([^\n\r]+)/i),
+      text.match(/Page\s+\d+\s+of\s+\d+\s*\n+([A-Z\.\s]{3,50})\s+VERIFY/i),
+    ].find((m) => m && !tableHeader.test(m[1] || m[0]));
 
     if (nameMatch) {
       const raw = nameMatch[1] || nameMatch[0];
@@ -156,11 +142,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract Verification URL
-    let verifyUrl = "http://t.cbl.fyi/i/10/stmt";
-    const urlMatch = text.match(/(https?:\/\/[^\s\n\r]+)/i);
-    if (urlMatch) {
-      verifyUrl = urlMatch[1].trim();
-    }
+    // Verification always points at this studio's verification site, never the bank's own link
+    const verifyUrl = VERIFY_URL;
 
     // Extract Dates
     let openingDate = "01 Oct 2025";

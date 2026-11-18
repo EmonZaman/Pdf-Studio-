@@ -1,0 +1,6 @@
+.env*
+.vercel
+node_modules
+.next
+data/history.json
+data/history.json.tmp
