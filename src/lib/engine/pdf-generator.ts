@@ -167,16 +167,16 @@ export async function generatePdf(
             continue;
           }
           if (el.id === "elem-p1-summary-top-line") {
-            page.drawRectangle({ x: 36, y: 628.022, width: 558, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
+            page.drawRectangle({ x: 36, y: isMultiAddr ? 620.522 : 628.022, width: 558, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
             continue;
           }
           if (el.id === "elem-p1-summary-bottom-line") {
-            page.drawRectangle({ x: 36, y: 598.619, width: 558, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
+            page.drawRectangle({ x: 36, y: isMultiAddr ? 591.119 : 598.619, width: 558, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
             continue;
           }
           if (el.id === "elem-p1-summary-div-1" || el.id === "elem-p1-summary-div-2" || el.id === "elem-p1-summary-div-3") {
             const divX = el.id === "elem-p1-summary-div-1" ? 175.2 : el.id === "elem-p1-summary-div-2" ? 314.65 : 454.4;
-            page.drawRectangle({ x: divX, y: 603.119, width: 0.5, height: 20.252, color: rgb(0.866, 0.866, 0.866) });
+            page.drawRectangle({ x: divX, y: isMultiAddr ? 595.619 : 603.119, width: 0.5, height: 20.252, color: rgb(0.866, 0.866, 0.866) });
             continue;
           }
           if (el.id === "elem-footer-divider") {
@@ -394,9 +394,14 @@ export async function generatePdf(
             continue;
           }
 
+          const rawAddrForOffset = String(
+            data.address || "TWINBIT LTD,HOUSE-715,ROAD-11 AVENUE-03,MIRPUR , DHAKA, BANGLADESH"
+          ).trim();
+          const p1Offset = isP1 && (rawAddrForOffset.includes("\n") || rawAddrForOffset.length > 68) ? 7.5 : 0;
+
           if (el.id === "elem-p1-summary-title") {
-            page.drawText("ACCOUNT", { x: 36, y: 632.485, size: 6, font: fontBold, color: rgb(0, 0, 0) });
-            page.drawText("SUMMARY", { x: 67.662, y: 632.485, size: 6, font: fontBold, color: rgb(0, 0, 0) });
+            page.drawText("ACCOUNT", { x: 36, y: 632.485 - p1Offset, size: 6, font: fontBold, color: rgb(0, 0, 0) });
+            page.drawText("SUMMARY", { x: 67.662, y: 632.485 - p1Offset, size: 6, font: fontBold, color: rgb(0, 0, 0) });
             continue;
           }
 
@@ -416,14 +421,14 @@ export async function generatePdf(
             const valW = fontBold.widthOfTextAtSize(val, 8);
             page.drawText(label, {
               x: rightEdge - labelW,
-              y: 616.813,
+              y: 616.813 - p1Offset,
               size: 7,
               font: fontRegular,
               color: rgb(0.533, 0.533, 0.533),
             });
             page.drawText(val, {
               x: rightEdge - valW,
-              y: 606.299,
+              y: 606.299 - p1Offset,
               size: 8,
               font: fontBold,
               color: rgb(0, 0, 0),
@@ -441,9 +446,9 @@ export async function generatePdf(
           }
 
           if (el.id === "elem-p1-tx-bar" || el.id === "elem-sub-tx-bar") {
-            const txY = isP1 ? 568.914 : 679.155;
-            const metaY = isP1 ? 569.785 : 680.026;
-            const divY = isP1 ? 566.943 : 677.183;
+            const txY = isP1 ? 568.914 - p1Offset : 679.155;
+            const metaY = isP1 ? 569.785 - p1Offset : 680.026;
+            const divY = isP1 ? 566.943 - p1Offset : 677.183;
             const genX = isP1 ? 428.077 : 408.477;
             const genValX = isP1 ? 491.112 : 471.512;
             const div2X = isP1 ? 530.75 : 511.15;
@@ -626,9 +631,13 @@ export async function generatePdf(
           page.drawRectangle({ x: 36, y: 663.718, width: 247.9, height: 0.5, color: rgb(0, 0, 0) });
           page.drawRectangle({ x: 341.7, y: 663.718, width: 252.3, height: 0.5, color: rgb(0, 0, 0) });
         } else {
-          const topHeaderLineY = isP1 ? 557.037 : 663.718;
-          const bottomHeaderLineY = isP1 ? 538.397 : 645.078;
-          const headerTextY = isP1 ? 545.711 : 652.391;
+          const rawAddrTbl = String(
+            data.address || "TWINBIT LTD,HOUSE-715,ROAD-11 AVENUE-03,MIRPUR , DHAKA, BANGLADESH"
+          ).trim();
+          const p1TblOffset = isP1 && (rawAddrTbl.includes("\n") || rawAddrTbl.length > 68) ? 7.5 : 0;
+          const topHeaderLineY = isP1 ? 557.037 - p1TblOffset : 663.718;
+          const bottomHeaderLineY = isP1 ? 538.397 - p1TblOffset : 645.078;
+          const headerTextY = isP1 ? 545.711 - p1TblOffset : 652.391;
           const redColor = rgb(0.929, 0.109, 0.141);
           const hdrColor = rgb(0.039, 0.039, 0.039);
 

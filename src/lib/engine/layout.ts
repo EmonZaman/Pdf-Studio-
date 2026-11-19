@@ -80,14 +80,19 @@ export function computeDocumentLayout(
     String(data.address || "").trim().includes("\n") ||
     String(data.address || "").trim().length > 68;
 
+  const effectiveP1StartY =
+    template.category === "banking" && isMultiLineAddress ? p1StartY + 7.5 : p1StartY;
+  const effectiveRowHeight =
+    template.category === "banking" && isMultiLineAddress ? 19.35 : rowHeight;
+
   // Page 1 available row count: 24 rows (1-line address) or 23 rows (2-line address)
-  const p1AvailableHeight = maxContentY - p1StartY - headerHeight;
+  const p1AvailableHeight = maxContentY - effectiveP1StartY - headerHeight;
   const p1RowCount =
     template.category === "banking"
       ? isMultiLineAddress
         ? 23
         : 24
-      : Math.max(1, Math.floor(p1AvailableHeight / rowHeight));
+      : Math.max(1, Math.floor(p1AvailableHeight / effectiveRowHeight));
 
   // Subsequent pages available row count: 31 rows (1-line address) or 29 rows (2-line address)
   const subStartY = 128.282;
@@ -97,7 +102,7 @@ export function computeDocumentLayout(
       ? isMultiLineAddress
         ? 29
         : 31
-      : Math.max(1, Math.floor(subAvailableHeight / rowHeight));
+      : Math.max(1, Math.floor(subAvailableHeight / effectiveRowHeight));
 
   // Partition rows into pages
   const rowBatches: any[][] = [];
@@ -135,7 +140,7 @@ export function computeDocumentLayout(
     const isFirst = p === 1;
     const isLast = p === totalPages;
     const rows = rowBatches[p - 1] || [];
-    const startY = isFirst ? p1StartY : subStartY;
+    const startY = isFirst ? effectiveP1StartY : subStartY;
 
     // Filter elements applicable to this page
     const pageElements = template.elements
@@ -182,9 +187,9 @@ export function computeDocumentLayout(
       const renderedRow: RenderedTableRow = {
         cells,
         y: currentY,
-        height: rowHeight,
+        height: effectiveRowHeight,
       };
-      currentY += rowHeight;
+      currentY += effectiveRowHeight;
       return renderedRow;
     });
 

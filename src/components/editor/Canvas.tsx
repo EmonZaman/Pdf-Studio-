@@ -173,10 +173,13 @@ export const Canvas: React.FC<CanvasProps> = ({
           const isMultiAddr =
             String(data.address || "").trim().includes("\n") ||
             String(data.address || "").trim().length > 68;
-          const adjustedElement =
-            isMultiAddr && (el.id === "elem-p1-cust-line" || el.id === "elem-p1-acct-meta")
-              ? { ...el, y: el.y + 7.5 }
-              : el;
+          const shouldShiftP1 =
+            isMultiAddr &&
+            (el.id === "elem-p1-cust-line" ||
+              el.id === "elem-p1-acct-meta" ||
+              el.id === "elem-p1-tx-bar" ||
+              el.id?.startsWith("elem-p1-summary-"));
+          const adjustedElement = shouldShiftP1 ? { ...el, y: el.y + 7.5 } : el;
 
           return (
             <CanvasElement
