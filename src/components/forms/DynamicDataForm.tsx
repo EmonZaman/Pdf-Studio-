@@ -55,11 +55,11 @@ const FORM_TABS: { id: FormTab; label: string; icon: React.ElementType }[] = [
 ];
 
 // Small live QR preview. Encodes the same string the PDF engine prints.
-const QrPreview: React.FC<{ value: string; customSrc?: string }> = ({ value, customSrc }) => {
+const QrPreview: React.FC<{ value: string; customSrc?: string; defaultSrc?: string }> = ({ value, customSrc, defaultSrc }) => {
   const [generatedSrc, setGeneratedSrc] = useState("");
 
   useEffect(() => {
-    if (customSrc) return;
+    if (customSrc || defaultSrc) return;
     let cancelled = false;
     generateQrDataUrl(value, { width: 240 }).then((url) => {
       if (!cancelled) setGeneratedSrc(url);
@@ -67,9 +67,9 @@ const QrPreview: React.FC<{ value: string; customSrc?: string }> = ({ value, cus
     return () => {
       cancelled = true;
     };
-  }, [value, customSrc]);
+  }, [value, customSrc, defaultSrc]);
 
-  const src = customSrc || generatedSrc;
+  const src = customSrc || defaultSrc || generatedSrc;
 
   return (
     <div className="shrink-0 w-28 h-28 p-1.5 bg-white border border-neutral-200 rounded-lg flex items-center justify-center">
@@ -467,7 +467,11 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
 
                 <div className="md:col-span-2 p-4 bg-white border border-neutral-200 rounded-xl shadow-2xs">
                   <div className="flex items-start gap-4">
-                    <QrPreview value={qrContent} customSrc={data.qrImage || undefined} />
+                    <QrPreview
+                      value={qrContent}
+                      customSrc={data.qrImage || undefined}
+                      defaultSrc={template.id === "city-bank-statement" ? "/images/ref-Im3.png" : undefined}
+                    />
                     <div className="flex-1 min-w-0 space-y-3">
                       <div>
                         <label className="block text-xs font-semibold text-neutral-700 mb-1">

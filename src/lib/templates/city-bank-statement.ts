@@ -199,7 +199,7 @@ export const CITY_BANK_TEMPLATE: DocumentTemplate = {
         color: "#888888",
         lineHeight: 1.33,
       },
-      content: "Can't scan? Enter the reference number at the\nURL below:\n{{verifyUrl}}",
+      content: "Can't scan? Enter the reference number at the\nURL below:\nhttp://t.cbl.fyi/i/10/stmt",
       pageTarget: "first",
     },
     {

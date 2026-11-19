@@ -70,7 +70,7 @@ describe("Statement Identity & Reference Pattern Validation", () => {
 
   it("exports official City Bank verification paths and short URLs", async () => {
     const { VERIFY_URL, CITY_BANK_PRINTED_VERIFY_URL } = await import("../src/lib/verify-config");
-    expect(CITY_BANK_PRINTED_VERIFY_URL).toBe("http://t.cbll.fyi/i/10/stmt");
+    expect(CITY_BANK_PRINTED_VERIFY_URL).toBe("http://t.cbl.fyi/i/10/stmt");
     expect(VERIFY_URL).toContain("/qr-statement/verification");
   });
 });

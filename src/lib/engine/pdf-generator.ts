@@ -39,10 +39,11 @@ export async function generatePdf(
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
-  // Pre-load authentic reference images (logo, globe, headset)
+  // Pre-load authentic reference images (logo, globe, headset, default QR)
   let embeddedBankLogo: any = null;
   let embeddedGlobeIcon: any = null;
   let embeddedPhoneIcon: any = null;
+  let embeddedRefQr: any = null;
 
   async function loadAssetPng(relPath: string): Promise<any> {
     try {
@@ -71,6 +72,7 @@ export async function generatePdf(
   embeddedBankLogo = (await loadAssetPng("/images/ref-Im0.png")) || (await loadAssetPng("/images/city-bank-logo.png"));
   embeddedGlobeIcon = await loadAssetPng("/images/ref-Im1.png");
   embeddedPhoneIcon = await loadAssetPng("/images/ref-Im2.png");
+  embeddedRefQr = await loadAssetPng("/images/ref-Im3.png");
 
   const pageW = template.pageSettings.width;
   const pageH = template.pageSettings.height;
@@ -212,7 +214,7 @@ export async function generatePdf(
           });
         }
       } else if (el.type === "qr_code") {
-        // A custom QR image uploaded in the form replaces the generated code
+        // A custom QR image uploaded in the form replaces the default QR code
         const customQr = typeof data.qrImage === "string" ? data.qrImage : "";
         if (customQr.startsWith("data:image/")) {
           try {
@@ -228,8 +230,18 @@ export async function generatePdf(
           continue;
         }
 
-        // Otherwise the QR is generated from the template data, so edits to the
-        // verification URL / reference code appear in the PDF.
+        // For City Bank statement, use the official dot-matrix City Bank QR code by default
+        if (isCityBank && embeddedRefQr) {
+          page.drawImage(embeddedRefQr, {
+            x: 393.55,
+            y: 669.86,
+            width: 61.8,
+            height: 61.8,
+          });
+          continue;
+        }
+
+        // Otherwise generate a QR code from the template data
         const qrContent = item.resolvedQrData || el.qrData || "";
         if (qrContent) {
           const qrBuffer = await generateQrBuffer(qrContent);
@@ -367,12 +379,12 @@ export async function generatePdf(
             const black = rgb(0, 0, 0);
             page.drawText("Can't scan? Enter the reference number at the ", { x: 461.1, y: 707.88, size: 6, font: fontRegular, color: grey });
             page.drawText("URL below:", { x: 461.1, y: 699.904, size: 6, font: fontRegular, color: grey });
-            page.drawText(String(data.printVerifyUrl || "http://t.cbll.fyi/i/10/stmt"), { x: 461.1, y: 691.928, size: 6, font: fontRegular, color: black });
+            page.drawText(String(data.printVerifyUrl || "http://t.cbl.fyi/i/10/stmt"), { x: 461.1, y: 691.928, size: 6, font: fontRegular, color: black });
             continue;
           }
 
           if (el.id === "elem-p1-verify-ref") {
-            page.drawText(String(data.referenceNo || "0S18HDHYANSPV"), {
+            page.drawText(String(data.referenceNo || "0RYYNJ4VANVZQ"), {
               x: 461.1,
               y: 669.296,
               size: 7,
