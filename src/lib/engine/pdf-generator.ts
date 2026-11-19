@@ -1,7 +1,12 @@
 import { PDFDocument, StandardFonts, rgb, RGB } from "pdf-lib";
-import { DocumentTemplate, DocumentData } from "@/types/template";
+import { DocumentTemplate, DocumentData, CanvasElement } from "@/types/template";
 import { computeDocumentLayout } from "./layout";
 import { generateQrBuffer } from "./qr-helper";
+import { CITY_BANK_TEMPLATE } from "@/lib/templates/city-bank-statement";
+
+const CITY_BANK_DEFAULT_ELEMENTS = new Map<string, CanvasElement>(
+  CITY_BANK_TEMPLATE.elements.map((el) => [el.id, el])
+);
 
 function dataUrlToBytes(dataUrl: string): Uint8Array {
   const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
@@ -104,15 +109,20 @@ export async function generatePdf(
       const w = el.width;
       const h = el.height;
       const pdfY = pageH - y - h;
+      const defEl = isCityBank ? CITY_BANK_DEFAULT_ELEMENTS.get(el.id) : undefined;
+      const dx = defEl ? el.x - defEl.x : 0;
+      const dy = defEl ? el.y - defEl.y : 0;
+      const dw = defEl ? el.width - defEl.width : 0;
+      const dh = defEl ? el.height - defEl.height : 0;
 
       if (el.type === "image") {
         if (embeddedBankLogo && (el.id === "elem-logo" || el.url?.includes("city-bank") || el.url?.includes("ref-Im0"))) {
           if (isCityBank) {
             page.drawImage(embeddedBankLogo, {
-              x: isP1 ? 35.94 : 39.27,
-              y: isP1 ? 742.964 : 739.114,
-              width: 48.674,
-              height: 31.036,
+              x: (isP1 ? 35.94 : 39.27) + dx,
+              y: (isP1 ? 742.964 : 739.114) - dy - dh,
+              width: 48.674 + dw,
+              height: 31.036 + dh,
             });
           } else {
             page.drawImage(embeddedBankLogo, {
@@ -154,42 +164,42 @@ export async function generatePdf(
           const isMultiAddr = rawAddr.includes("\n") || rawAddr.length > 68;
           if (el.id === "elem-p1-cust-line") {
             page.drawRectangle({
-              x: 36,
-              y: isMultiAddr ? 691.398 : 698.898,
-              width: 338.15,
+              x: 36 + dx,
+              y: (isMultiAddr ? 691.398 : 698.898) - dy,
+              width: 338.15 + dw,
               height: 0.5,
               color: rgb(0.925, 0.925, 0.925),
             });
             continue;
           }
           if (el.id === "elem-p1-verify-line") {
-            page.drawRectangle({ x: 461.1, y: 720.882, width: 132.9, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
+            page.drawRectangle({ x: 461.1 + dx, y: 720.882 - dy, width: 132.9 + dw, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
             continue;
           }
           if (el.id === "elem-p1-summary-top-line") {
-            page.drawRectangle({ x: 36, y: isMultiAddr ? 620.522 : 628.022, width: 558, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
+            page.drawRectangle({ x: 36 + dx, y: (isMultiAddr ? 620.522 : 628.022) - dy, width: 558 + dw, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
             continue;
           }
           if (el.id === "elem-p1-summary-bottom-line") {
-            page.drawRectangle({ x: 36, y: isMultiAddr ? 591.119 : 598.619, width: 558, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
+            page.drawRectangle({ x: 36 + dx, y: (isMultiAddr ? 591.119 : 598.619) - dy, width: 558 + dw, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
             continue;
           }
           if (el.id === "elem-p1-summary-div-1" || el.id === "elem-p1-summary-div-2" || el.id === "elem-p1-summary-div-3") {
-            const divX = el.id === "elem-p1-summary-div-1" ? 175.2 : el.id === "elem-p1-summary-div-2" ? 314.65 : 454.4;
-            page.drawRectangle({ x: divX, y: isMultiAddr ? 595.619 : 603.119, width: 0.5, height: 20.252, color: rgb(0.866, 0.866, 0.866) });
+            const divX = (el.id === "elem-p1-summary-div-1" ? 175.2 : el.id === "elem-p1-summary-div-2" ? 314.65 : 454.4) + dx;
+            page.drawRectangle({ x: divX, y: (isMultiAddr ? 595.619 : 603.119) - dy, width: 0.5, height: 20.252 + dh, color: rgb(0.866, 0.866, 0.866) });
             continue;
           }
           if (el.id === "elem-footer-divider") {
-            page.drawRectangle({ x: 36, y: isP1 ? 60.726 : 57.257, width: 558, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
+            page.drawRectangle({ x: 36 + dx, y: (isP1 ? 60.726 : 57.257) - dy, width: 558 + dw, height: 0.5, color: rgb(0.929, 0.109, 0.141) });
             continue;
           }
           if (el.id === "elem-footer-div1" || el.id === "elem-footer-div2" || el.id === "elem-footer-div3") {
-            const divX = el.id === "elem-footer-div1" ? 335.7 : el.id === "elem-footer-div2" ? 421.95 : 494.65;
+            const divX = (el.id === "elem-footer-div1" ? 335.7 : el.id === "elem-footer-div2" ? 421.95 : 494.65) + dx;
             page.drawRectangle({
               x: divX,
-              y: isP1 ? 23.383 : 28.245,
+              y: (isP1 ? 23.383 : 28.245) - dy,
               width: 0.5,
-              height: isP1 ? 30.342 : 22.012,
+              height: (isP1 ? 30.342 : 22.012) + dh,
               color: rgb(0.925, 0.925, 0.925),
             });
             continue;
@@ -233,10 +243,10 @@ export async function generatePdf(
         // For City Bank statement, use the official dot-matrix City Bank QR code by default
         if (isCityBank && embeddedRefQr) {
           page.drawImage(embeddedRefQr, {
-            x: 393.55,
-            y: 669.86,
-            width: 61.8,
-            height: 61.8,
+            x: 393.55 + dx,
+            y: 669.86 - dy - dh,
+            width: 61.8 + dw,
+            height: 61.8 + dh,
           });
           continue;
         }
@@ -264,12 +274,12 @@ export async function generatePdf(
         if (!textContent) continue;
 
         if (isCityBank) {
-          // Exact Reference PDF text placements
+          // Exact Reference PDF text placements (plus any layout offset dx / dy)
           if (el.id === "elem-statement-title") {
-            page.drawText("Statement of Account", {
-              x: isP1 ? 393.55 : 438.5,
-              y: isP1 ? 750.824 : 746.974,
-              size: 16,
+            page.drawText(el.content || "Statement of Account", {
+              x: (isP1 ? 393.55 : 438.5) + dx,
+              y: (isP1 ? 750.824 : 746.974) - dy,
+              size: el.style.fontSize || 16,
               font: fontBold,
               color: rgb(0.039, 0.039, 0.039),
             });
@@ -278,9 +288,9 @@ export async function generatePdf(
 
           if (el.id === "elem-p1-cust-name") {
             page.drawText(data.customerName || "MD. MONIRUZZAMAN EMON", {
-              x: 36,
-              y: 725.565,
-              size: 7,
+              x: 36 + dx,
+              y: 725.565 - dy,
+              size: el.style.fontSize || 7,
               font: fontBold,
               color: rgb(0, 0, 0),
             });
@@ -294,14 +304,14 @@ export async function generatePdf(
             const rawLines = rawAddr.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
             const addrLines: string[] = [];
             for (const rl of rawLines) {
-              if (fontRegular.widthOfTextAtSize(rl, 7) <= 345) {
+              if (fontRegular.widthOfTextAtSize(rl, 7) <= 345 + dw) {
                 addrLines.push(rl);
               } else {
                 const words = rl.split(" ");
                 let cur = "";
                 for (const w of words) {
                   const cand = cur ? `${cur} ${w}` : w;
-                  if (fontRegular.widthOfTextAtSize(cand, 7) <= 345 || !cur) {
+                  if (fontRegular.widthOfTextAtSize(cand, 7) <= 345 + dw || !cur) {
                     cur = cand;
                   } else {
                     addrLines.push(cur);
@@ -311,10 +321,10 @@ export async function generatePdf(
                 if (cur) addrLines.push(cur);
               }
             }
-            let addrY = 711.673;
+            let addrY = 711.673 - dy;
             for (const line of addrLines.slice(0, 3)) {
               page.drawText(line, {
-                x: 36,
+                x: 36 + dx,
                 y: addrY,
                 size: 7,
                 font: fontRegular,
@@ -330,63 +340,63 @@ export async function generatePdf(
               data.address || "TWINBIT LTD,HOUSE-715,ROAD-11 AVENUE-03,MIRPUR , DHAKA, BANGLADESH"
             ).trim();
             const isMultiAddr = rawAddr.includes("\n") || rawAddr.length > 68;
-            const row1Y = isMultiAddr ? 679.339 : 686.839;
-            const row2Y = isMultiAddr ? 670.034 : 677.534;
+            const row1Y = (isMultiAddr ? 679.339 : 686.839) - dy;
+            const row2Y = (isMultiAddr ? 670.034 : 677.534) - dy;
             const grey = rgb(0.533, 0.533, 0.533);
             const black = rgb(0, 0, 0);
             // Shrink long values to fit their column so they stay on one line and on the label baseline
-            const drawFitted = (text: string, x: number, y: number, maxWidth: number) => {
+            const drawFitted = (text: string, xCoord: number, yCoord: number, maxWidth: number) => {
               let size = 7;
               while (size > 5 && fontRegular.widthOfTextAtSize(text, size) > maxWidth) size -= 0.25;
-              page.drawText(text, { x, y, size, font: fontRegular, color: black });
+              page.drawText(text, { x: xCoord, y: yCoord, size, font: fontRegular, color: black });
             };
             // Row 1
-            page.drawText("Account No.", { x: 37.45, y: row1Y, size: 7, font: fontRegular, color: grey });
-            page.drawText(":", { x: 88.15, y: row1Y, size: 7, font: fontRegular, color: grey });
-            page.drawText(String(data.accountNo || "2304435091001"), { x: 93, y: row1Y, size: 7, font: fontRegular, color: black });
+            page.drawText("Account No.", { x: 37.45 + dx, y: row1Y, size: 7, font: fontRegular, color: grey });
+            page.drawText(":", { x: 88.15 + dx, y: row1Y, size: 7, font: fontRegular, color: grey });
+            page.drawText(String(data.accountNo || "2304435091001"), { x: 93 + dx, y: row1Y, size: 7, font: fontRegular, color: black });
 
-            page.drawText("Account Type", { x: 180.55, y: row1Y, size: 7, font: fontRegular, color: grey });
-            page.drawText(":", { x: 226.8, y: row1Y, size: 7, font: fontRegular, color: grey });
-            drawFitted(String(data.accountType || "HIGH VALUE SAVINGS A/C"), 231.65, row1Y, 150);
+            page.drawText("Account Type", { x: 180.55 + dx, y: row1Y, size: 7, font: fontRegular, color: grey });
+            page.drawText(":", { x: 226.8 + dx, y: row1Y, size: 7, font: fontRegular, color: grey });
+            drawFitted(String(data.accountType || "HIGH VALUE SAVINGS A/C"), 231.65 + dx, row1Y, 150);
 
             // Row 2
-            page.drawText("Account Status", { x: 37.45, y: row2Y, size: 7, font: fontRegular, color: grey });
-            page.drawText(":", { x: 88.15, y: row2Y, size: 7, font: fontRegular, color: grey });
-            page.drawText(String(data.accountStatus || "ACTIVE"), { x: 93, y: row2Y, size: 7, font: fontRegular, color: black });
+            page.drawText("Account Status", { x: 37.45 + dx, y: row2Y, size: 7, font: fontRegular, color: grey });
+            page.drawText(":", { x: 88.15 + dx, y: row2Y, size: 7, font: fontRegular, color: grey });
+            page.drawText(String(data.accountStatus || "ACTIVE"), { x: 93 + dx, y: row2Y, size: 7, font: fontRegular, color: black });
 
-            page.drawText("Branch", { x: 180.55, y: row2Y, size: 7, font: fontRegular, color: grey });
-            page.drawText(":", { x: 226.8, y: row2Y, size: 7, font: fontRegular, color: grey });
-            drawFitted(String(data.branch || "PALLABI BRANCH"), 231.65, row2Y, 150);
+            page.drawText("Branch", { x: 180.55 + dx, y: row2Y, size: 7, font: fontRegular, color: grey });
+            page.drawText(":", { x: 226.8 + dx, y: row2Y, size: 7, font: fontRegular, color: grey });
+            drawFitted(String(data.branch || "PALLABI BRANCH"), 231.65 + dx, row2Y, 150);
             continue;
           }
 
           if (el.id === "elem-p1-verify-header") {
-            const yHeader = 725.941;
+            const yHeader = 725.941 - dy;
             const black = rgb(0, 0, 0);
             const grey = rgb(0.533, 0.533, 0.533);
-            page.drawText("VERIFY", { x: 461.1, y: yHeader, size: 6, font: fontBold, color: black });
-            page.drawText("THIS", { x: 484.44, y: yHeader, size: 6, font: fontBold, color: black });
-            page.drawText("STATEMENT", { x: 499.776, y: yHeader, size: 6, font: fontBold, color: black });
-            page.drawText("Valid", { x: 539.778, y: yHeader, size: 5, font: fontRegular, color: grey });
-            page.drawText("for", { x: 552.283, y: yHeader, size: 5, font: fontRegular, color: grey });
-            page.drawText("6", { x: 559.508, y: yHeader, size: 5, font: fontRegular, color: grey });
-            page.drawText("months", { x: 563.678, y: yHeader, size: 5, font: fontRegular, color: grey });
+            page.drawText("VERIFY", { x: 461.1 + dx, y: yHeader, size: 6, font: fontBold, color: black });
+            page.drawText("THIS", { x: 484.44 + dx, y: yHeader, size: 6, font: fontBold, color: black });
+            page.drawText("STATEMENT", { x: 499.776 + dx, y: yHeader, size: 6, font: fontBold, color: black });
+            page.drawText("Valid", { x: 539.778 + dx, y: yHeader, size: 5, font: fontRegular, color: grey });
+            page.drawText("for", { x: 552.283 + dx, y: yHeader, size: 5, font: fontRegular, color: grey });
+            page.drawText("6", { x: 559.508 + dx, y: yHeader, size: 5, font: fontRegular, color: grey });
+            page.drawText("months", { x: 563.678 + dx, y: yHeader, size: 5, font: fontRegular, color: grey });
             continue;
           }
 
           if (el.id === "elem-p1-verify-text") {
             const grey = rgb(0.533, 0.533, 0.533);
             const black = rgb(0, 0, 0);
-            page.drawText("Can't scan? Enter the reference number at the ", { x: 461.1, y: 707.88, size: 6, font: fontRegular, color: grey });
-            page.drawText("URL below:", { x: 461.1, y: 699.904, size: 6, font: fontRegular, color: grey });
-            page.drawText(String(data.printVerifyUrl || "http://t.cbl.fyi/i/10/stmt"), { x: 461.1, y: 691.928, size: 6, font: fontRegular, color: black });
+            page.drawText("Can't scan? Enter the reference number at the ", { x: 461.1 + dx, y: 707.88 - dy, size: 6, font: fontRegular, color: grey });
+            page.drawText("URL below:", { x: 461.1 + dx, y: 699.904 - dy, size: 6, font: fontRegular, color: grey });
+            page.drawText(String(data.printVerifyUrl || "http://t.cbl.fyi/i/10/stmt"), { x: 461.1 + dx, y: 691.928 - dy, size: 6, font: fontRegular, color: black });
             continue;
           }
 
           if (el.id === "elem-p1-verify-ref") {
             page.drawText(String(data.referenceNo || "0RYYNJ4VANVZQ"), {
-              x: 461.1,
-              y: 669.296,
+              x: 461.1 + dx,
+              y: 669.296 - dy,
               size: 7,
               font: fontBold,
               color: rgb(0, 0, 0),
@@ -400,8 +410,8 @@ export async function generatePdf(
           const p1Offset = isP1 && (rawAddrForOffset.includes("\n") || rawAddrForOffset.length > 68) ? 7.5 : 0;
 
           if (el.id === "elem-p1-summary-title") {
-            page.drawText("ACCOUNT", { x: 36, y: 632.485 - p1Offset, size: 6, font: fontBold, color: rgb(0, 0, 0) });
-            page.drawText("SUMMARY", { x: 67.662, y: 632.485 - p1Offset, size: 6, font: fontBold, color: rgb(0, 0, 0) });
+            page.drawText("ACCOUNT", { x: 36 + dx, y: 632.485 - p1Offset - dy, size: 6, font: fontBold, color: rgb(0, 0, 0) });
+            page.drawText("SUMMARY", { x: 67.662 + dx, y: 632.485 - p1Offset - dy, size: 6, font: fontBold, color: rgb(0, 0, 0) });
             continue;
           }
 
@@ -410,25 +420,25 @@ export async function generatePdf(
             const label = parts[0] || "";
             const val = parts[1] || "";
             const rightEdge =
-              el.id === "elem-p1-summary-c1"
+              (el.id === "elem-p1-summary-c1"
                 ? 168.25
                 : el.id === "elem-p1-summary-c2"
                 ? 307.7
                 : el.id === "elem-p1-summary-c3"
                 ? 447.4
-                : 594.0;
+                : 594.0) + dx;
             const labelW = fontRegular.widthOfTextAtSize(label, 7);
             const valW = fontBold.widthOfTextAtSize(val, 8);
             page.drawText(label, {
               x: rightEdge - labelW,
-              y: 616.813 - p1Offset,
+              y: 616.813 - p1Offset - dy,
               size: 7,
               font: fontRegular,
               color: rgb(0.533, 0.533, 0.533),
             });
             page.drawText(val, {
               x: rightEdge - valW,
-              y: 606.299 - p1Offset,
+              y: 606.299 - p1Offset - dy,
               size: 8,
               font: fontBold,
               color: rgb(0, 0, 0),
@@ -438,31 +448,31 @@ export async function generatePdf(
 
           if (el.id === "elem-sub-cust-info") {
             const dark = rgb(0.039, 0.039, 0.039);
-            page.drawText("Name :", { x: 35.1, y: 713.662, size: 8, font: fontRegular, color: dark });
-            page.drawText(String(data.customerName || "MD. MONIRUZZAMAN EMON"), { x: 63.5, y: 713.662, size: 8, font: fontBold, color: dark });
-            page.drawText("Account No. :", { x: 486.5, y: 713.662, size: 8, font: fontRegular, color: dark });
-            page.drawText(String(data.accountNo || "2304435091001"), { x: 537.5, y: 713.662, size: 8, font: fontBold, color: dark });
+            page.drawText("Name :", { x: 35.1 + dx, y: 713.662 - dy, size: 8, font: fontRegular, color: dark });
+            page.drawText(String(data.customerName || "MD. MONIRUZZAMAN EMON"), { x: 63.5 + dx, y: 713.662 - dy, size: 8, font: fontBold, color: dark });
+            page.drawText("Account No. :", { x: 486.5 + dx, y: 713.662 - dy, size: 8, font: fontRegular, color: dark });
+            page.drawText(String(data.accountNo || "2304435091001"), { x: 537.5 + dx, y: 713.662 - dy, size: 8, font: fontBold, color: dark });
             continue;
           }
 
           if (el.id === "elem-p1-tx-bar" || el.id === "elem-sub-tx-bar") {
-            const txY = isP1 ? 568.914 - p1Offset : 679.155;
-            const metaY = isP1 ? 569.785 - p1Offset : 680.026;
-            const divY = isP1 ? 566.943 - p1Offset : 677.183;
-            const genX = isP1 ? 428.077 : 408.477;
-            const genValX = isP1 ? 491.112 : 471.512;
-            const div2X = isP1 ? 530.75 : 511.15;
+            const txY = (isP1 ? 568.914 - p1Offset : 679.155) - dy;
+            const metaY = (isP1 ? 569.785 - p1Offset : 680.026) - dy;
+            const divY = (isP1 ? 566.943 - p1Offset : 677.183) - dy;
+            const genX = (isP1 ? 428.077 : 408.477) + dx;
+            const genValX = (isP1 ? 491.112 : 471.512) + dx;
+            const div2X = (isP1 ? 530.75 : 511.15) + dx;
 
             page.drawText("TRANSACTIONS", {
-              x: 36,
+              x: 36 + dx,
               y: txY,
               size: 9,
               font: fontBold,
               color: rgb(0.929, 0.109, 0.141),
             });
-            page.drawRectangle({ x: 114.45, y: divY, width: 0.5, height: 10.71, color: rgb(0.8, 0.8, 0.8) });
+            page.drawRectangle({ x: 114.45 + dx, y: divY, width: 0.5, height: 10.71, color: rgb(0.8, 0.8, 0.8) });
             page.drawText(`From ${data.openingDate || "01 Oct 2025"} to ${data.statementEndDate || "24 Oct 2026"}`, {
-              x: 121.9,
+              x: 121.9 + dx,
               y: metaY,
               size: 7,
               font: fontRegular,
@@ -484,14 +494,14 @@ export async function generatePdf(
             });
             page.drawRectangle({ x: div2X, y: divY, width: 0.5, height: 10.71, color: rgb(0.8, 0.8, 0.8) });
             page.drawText("Currency: ", {
-              x: 549.716,
+              x: 549.716 + dx,
               y: metaY,
               size: 7,
               font: fontRegular,
               color: rgb(0.533, 0.533, 0.533),
             });
             page.drawText(String(data.currency || "BDT"), {
-              x: 582,
+              x: 582 + dx,
               y: metaY,
               size: 6,
               font: fontRegular,
@@ -501,25 +511,25 @@ export async function generatePdf(
           }
 
           if (el.id === "elem-footer-notes") {
-            const notesTitleY = isP1 ? 47.9 : 44.432;
-            const line1Y = isP1 ? 39.963 : 36.495;
-            const line2Y = isP1 ? 33.028 : 29.559;
+            const notesTitleY = (isP1 ? 47.9 : 44.432) - dy;
+            const line1Y = (isP1 ? 39.963 : 36.495) - dy;
+            const line2Y = (isP1 ? 33.028 : 29.559) - dy;
             page.drawText("Notes:", {
-              x: 41.75,
+              x: 41.75 + dx,
               y: notesTitleY,
               size: 6,
               font: fontBold,
               color: rgb(0, 0, 0),
             });
             page.drawText("This is a system generated statement and requires no signature. Please advise the bank of any discrepancy ", {
-              x: 41.75,
+              x: 41.75 + dx,
               y: line1Y,
               size: 6,
               font: fontRegular,
               color: rgb(0.349, 0.349, 0.349),
             });
             page.drawText("within 14 days of receipt of this statement (if any), otherwise, this statement will be deemed correct.", {
-              x: 41.75,
+              x: 41.75 + dx,
               y: line2Y,
               size: 6,
               font: fontRegular,
@@ -529,13 +539,13 @@ export async function generatePdf(
           }
 
           if (el.id === "elem-footer-web") {
-            const iconY = isP1 ? 39.079 : 35.612;
-            const textY = isP1 ? 40.088 : 36.619;
+            const iconY = (isP1 ? 39.079 : 35.612) - dy;
+            const textY = (isP1 ? 40.088 : 36.619) - dy;
             if (embeddedGlobeIcon) {
-              page.drawImage(embeddedGlobeIcon, { x: 341.35, y: iconY, width: 7.28, height: 7.28 });
+              page.drawImage(embeddedGlobeIcon, { x: 341.35 + dx, y: iconY, width: 7.28, height: 7.28 });
             }
             page.drawText(String(data.website || "citybankplc.com"), {
-              x: 354.75,
+              x: 354.75 + dx,
               y: textY,
               size: 7,
               font: fontBold,
@@ -545,25 +555,25 @@ export async function generatePdf(
           }
 
           if (el.id === "elem-footer-phones") {
-            const iconY = isP1 ? 39.079 : 35.612;
-            const textY = isP1 ? 40.088 : 36.619;
+            const iconY = (isP1 ? 39.079 : 35.612) - dy;
+            const textY = (isP1 ? 40.088 : 36.619) - dy;
             if (embeddedPhoneIcon) {
-              page.drawImage(embeddedPhoneIcon, { x: 427.6, y: iconY, width: 7.28, height: 7.28 });
+              page.drawImage(embeddedPhoneIcon, { x: 427.6 + dx, y: iconY, width: 7.28, height: 7.28 });
             }
-            page.drawText("16234", { x: 441, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
-            page.drawText("(Local)", { x: 462.406, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
-            page.drawText("+880 2 8331040", { x: 500.3, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
-            page.drawText(" (Overseas)", { x: 551.092, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
+            page.drawText("16234", { x: 441 + dx, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
+            page.drawText("(Local)", { x: 462.406 + dx, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
+            page.drawText("+880 2 8331040", { x: 500.3 + dx, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
+            page.drawText(" (Overseas)", { x: 551.092 + dx, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
             continue;
           }
 
           if (el.id === "elem-footer-page-num") {
-            const pgY = isP1 ? 24.916 : 21.448;
+            const pgY = (isP1 ? 24.916 : 21.448) - dy;
             const pgColor = rgb(0.474, 0.474, 0.474);
             const pNumStr = String(pageInfo.pageNumber);
             const totStr = String(pageInfo.totalPages);
-            page.drawText("Page ", { x: 548.903, y: pgY, size: 7, font: fontRegular, color: pgColor });
-            const pNumX = 567.194;
+            page.drawText("Page ", { x: 548.903 + dx, y: pgY, size: 7, font: fontRegular, color: pgColor });
+            const pNumX = 567.194 + dx;
             page.drawText(pNumStr, { x: pNumX, y: pgY, size: 7, font: fontBold, color: pgColor });
             const ofX = pNumX + fontBold.widthOfTextAtSize(pNumStr, 7);
             page.drawText(" of ", { x: ofX, y: pgY, size: 7, font: fontRegular, color: pgColor });

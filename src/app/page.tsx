@@ -283,6 +283,18 @@ export default function StudioPage() {
     setCurrentPage(1);
   };
 
+  // Restore the built-in template layout to its initial state
+  const handleResetLayout = () => {
+    const initialTpl = DEFAULT_TEMPLATES[template.id]?.template;
+    if (!initialTpl) return;
+    const fresh: DocumentTemplate = JSON.parse(JSON.stringify(initialTpl));
+    setTemplate(fresh);
+    setHistory([fresh]);
+    setHistoryIndex(0);
+    setSelectedId(null);
+    setCurrentPage(1);
+  };
+
   // Export PDF directly
   const handleExportPdf = async () => {
     try {
@@ -501,6 +513,8 @@ export default function StudioPage() {
             onFitWidth={() => setZoom(1.0)}
             onFitPage={() => setZoom(0.75)}
             onAlignElement={handleAlignElement}
+            onResetLayout={handleResetLayout}
+            onDownloadPdf={handleExportPdf}
           />
 
           {/* Canvas Workspace: Left Layers + Center Canvas + Right Properties */}
@@ -541,6 +555,8 @@ export default function StudioPage() {
               unit={unit}
               onUpdateElement={(updates) => selectedId && handleUpdateElement(selectedId, updates)}
               onUpdatePageSettings={handleUpdatePageSettings}
+              onDownloadPdf={handleExportPdf}
+              onResetLayout={handleResetLayout}
             />
           </div>
         </div>

@@ -18,6 +18,8 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Download,
+  RotateCcw,
 } from "lucide-react";
 
 interface ToolbarProps {
@@ -40,6 +42,8 @@ interface ToolbarProps {
   onFitWidth: () => void;
   onFitPage: () => void;
   onAlignElement: (align: "left" | "center" | "right") => void;
+  onResetLayout?: () => void;
+  onDownloadPdf?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -62,6 +66,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onFitWidth,
   onFitPage,
   onAlignElement,
+  onResetLayout,
+  onDownloadPdf,
 }) => {
   return (
     <div className="h-12 bg-white border-b border-neutral-200 px-4 flex items-center justify-between text-neutral-700 text-sm select-none shadow-xs">
@@ -212,6 +218,32 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Maximize2 className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Fit</span>
         </button>
+
+        {(onResetLayout || onDownloadPdf) && (
+          <>
+            <div className="h-4 w-px bg-neutral-200 mx-1" />
+            {onResetLayout && (
+              <button
+                onClick={onResetLayout}
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 bg-white hover:bg-red-50 text-neutral-700 hover:text-red-700 hover:border-red-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                title="Reset Layout to Initial State"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Layout</span>
+              </button>
+            )}
+            {onDownloadPdf && (
+              <button
+                onClick={onDownloadPdf}
+                className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
+                title="Download PDF with Updated Layout"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

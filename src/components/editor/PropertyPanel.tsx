@@ -16,6 +16,8 @@ import {
   Settings,
   Plus,
   Trash2,
+  Download,
+  RotateCcw,
 } from "lucide-react";
 
 interface PropertyPanelProps {
@@ -24,6 +26,8 @@ interface PropertyPanelProps {
   unit: UnitType;
   onUpdateElement: (updates: Partial<CanvasElement>) => void;
   onUpdatePageSettings: (settings: Partial<DocumentTemplate["pageSettings"]>) => void;
+  onDownloadPdf?: () => void;
+  onResetLayout?: () => void;
 }
 
 export const PropertyPanel: React.FC<PropertyPanelProps> = ({
@@ -32,6 +36,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({
   unit,
   onUpdateElement,
   onUpdatePageSettings,
+  onDownloadPdf,
+  onResetLayout,
 }) => {
   if (!element) {
     // Show Page & Document Settings
@@ -44,33 +50,52 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({
         </div>
 
         <div className="space-y-4">
-          {/* Preset Size */}
+          {/* Quick Layout Actions: Download & Reset */}
+          {(onDownloadPdf || onResetLayout) && (
+            <div className="p-2.5 bg-neutral-50 border border-neutral-200 rounded-lg space-y-2">
+              <div className="text-[11px] font-semibold text-neutral-700">Layout Actions</div>
+              {onDownloadPdf && (
+                <button
+                  type="button"
+                  onClick={onDownloadPdf}
+                  className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Updated PDF</span>
+                </button>
+              )}
+              {onResetLayout && (
+                <button
+                  type="button"
+                  onClick={onResetLayout}
+                  className="w-full py-1.5 px-3 bg-white hover:bg-red-50 text-neutral-700 hover:text-red-700 border border-neutral-300 hover:border-red-200 rounded-md font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Layout to Initial</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Preset Size (Only A4 clickable) */}
           <div>
             <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
               Page Preset
             </label>
-            <select
-              value={ps.size}
-              onChange={(e) => {
-                const s = e.target.value as any;
-                let w = ps.width;
-                let h = ps.height;
-                if (s === "A4") {
-                  w = ps.orientation === "portrait" ? 595.28 : 841.89;
-                  h = ps.orientation === "portrait" ? 841.89 : 595.28;
-                } else if (s === "LETTER") {
-                  w = ps.orientation === "portrait" ? 612 : 792;
-                  h = ps.orientation === "portrait" ? 792 : 612;
-                }
-                onUpdatePageSettings({ size: s, width: w, height: h });
+            <button
+              type="button"
+              onClick={() => {
+                onUpdatePageSettings({
+                  size: "A4",
+                  width: ps.orientation === "portrait" ? 612 : 792,
+                  height: ps.orientation === "portrait" ? 792 : 612,
+                });
               }}
-              className="w-full p-1.5 border border-neutral-300 rounded bg-white text-xs"
+              className="w-full py-2 px-3 border border-blue-500 bg-blue-50 text-blue-700 rounded-md font-semibold text-xs flex items-center justify-between cursor-pointer"
             >
-              <option value="A4">A4 (210 × 297 mm)</option>
-              <option value="LETTER">Letter (8.5 × 11 in)</option>
-              <option value="LEGAL">Legal (8.5 × 14 in)</option>
-              <option value="CUSTOM">Custom Dimensions</option>
-            </select>
+              <span>A4 (210 × 297 mm)</span>
+              <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">Active</span>
+            </button>
           </div>
 
           {/* Orientation */}
@@ -117,34 +142,6 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({
               >
                 Landscape
               </button>
-            </div>
-          </div>
-
-          {/* Dimensions */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[10px] text-neutral-500 mb-0.5">Width ({unit})</label>
-              <input
-                type="number"
-                value={fromPoints(ps.width, unit)}
-                onChange={(e) => {
-                  const val = toPoints(parseFloat(e.target.value) || 0, unit);
-                  onUpdatePageSettings({ width: val, size: "CUSTOM" });
-                }}
-                className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-neutral-500 mb-0.5">Height ({unit})</label>
-              <input
-                type="number"
-                value={fromPoints(ps.height, unit)}
-                onChange={(e) => {
-                  const val = toPoints(parseFloat(e.target.value) || 0, unit);
-                  onUpdatePageSettings({ height: val, size: "CUSTOM" });
-                }}
-                className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs"
-              />
             </div>
           </div>
 
@@ -615,6 +612,32 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({
             />
           </div>
         </div>
+
+        {/* Layout Actions at bottom of Element Inspector */}
+        {(onDownloadPdf || onResetLayout) && (
+          <div className="pt-3 border-t border-neutral-200 space-y-2">
+            {onDownloadPdf && (
+              <button
+                type="button"
+                onClick={onDownloadPdf}
+                className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Updated PDF</span>
+              </button>
+            )}
+            {onResetLayout && (
+              <button
+                type="button"
+                onClick={onResetLayout}
+                className="w-full py-1.5 px-3 bg-white hover:bg-red-50 text-neutral-700 hover:text-red-700 border border-neutral-300 hover:border-red-200 rounded-md font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Layout to Initial</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );
