@@ -17,6 +17,10 @@ import {
   isValidAccountNo,
   isValidReferenceNo,
 } from "@/lib/statement-identity";
+import {
+  generateBangladeshiAiLedger,
+  BangladeshiLedgerProfile,
+} from "@/lib/ai-ledger-generator";
 import { VERIFY_URL } from "@/lib/verify-config";
 import {
   FileText,
@@ -161,6 +165,63 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
 
   const [isRegistering, setIsRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+
+  // AI Ledger Generator Modal State
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiRowCount, setAiRowCount] = useState<string>(String(Math.max(10, tableRows.length > 1 ? tableRows.length - 1 : 60)));
+  const [aiStartDate, setAiStartDate] = useState<string>(String(data.openingDate || "01 Jan 2026"));
+  const [aiEndDate, setAiEndDate] = useState<string>(String(data.statementEndDate || "17 Oct 2026"));
+  const [aiOpeningBal, setAiOpeningBal] = useState<string>(String(data.openingBalance || "384,578.87"));
+  const [aiClosingBal, setAiClosingBal] = useState<string>(String(data.availableBalance || "332,784.69"));
+  const [aiProfile, setAiProfile] = useState<BangladeshiLedgerProfile>("auto");
+  const [aiIncludeDeps, setAiIncludeDeps] = useState<boolean>(true);
+
+  const openAiLedgerModal = () => {
+    const currentTxCount = tableRows.filter((r) => r.description !== "Opening Balance").length;
+    setAiRowCount(String(currentTxCount > 0 ? currentTxCount : 60));
+    setAiStartDate(String(data.openingDate || "01 Jan 2026"));
+    setAiEndDate(String(data.statementEndDate || "17 Oct 2026"));
+    setAiOpeningBal(String(data.openingBalance || "384,578.87"));
+    setAiClosingBal(String(data.availableBalance || "332,784.69"));
+    setIsAiModalOpen(true);
+  };
+
+  const handleGenerateAiLedger = (e: React.FormEvent) => {
+    e.preventDefault();
+    const count = Math.max(4, Math.min(600, parseInt(aiRowCount, 10) || 60));
+    const res = generateBangladeshiAiLedger({
+      rowCount: count,
+      startDate: aiStartDate,
+      endDate: aiEndDate,
+      openingBalance: aiOpeningBal,
+      targetClosingBalance: aiClosingBal,
+      accountNo: String(data.accountNo || "1781920006484"),
+      accountType: String(data.accountType || "ISLAMIC SAVINGS A/C - DST"),
+      branch: String(data.branch || "KARWAN BAZAR BRANCH"),
+      customerName: String(data.customerName || ""),
+      profile: aiProfile,
+      includeDependencies: aiIncludeDeps,
+    });
+
+    onChange({
+      ...data,
+      openingDate: res.openingDate,
+      statementEndDate: res.statementEndDate,
+      generationDate: res.generationDate,
+      openingBalance: res.openingBalance,
+      totalDeposits: res.totalDeposits,
+      totalWithdrawals: res.totalWithdrawals,
+      availableBalance: res.availableBalance,
+      [tableDataKey]: res.transactions,
+    });
+
+    setIsAiModalOpen(false);
+    setActiveTab("transactions");
+    highlightRow(
+      1,
+      `Generated ${res.transactions.length - 1} authentic Bangladeshi ledger transactions (${res.dependencyCount} linked fee/tax/incentive dependencies) from ${res.openingDate} to ${res.statementEndDate} matching Opening Balance ${res.openingBalance} → End Balance ${res.availableBalance}.`
+    );
+  };
 
   const handleGenerateAccountNo = () => {
     const newAcc = generateCityBankAccountNo();
@@ -414,14 +475,25 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
               </button>
             )}
             {template.category === "banking" && (
-              <button
-                onClick={handleRecalculateAll}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md text-[11px] font-semibold border border-blue-200 transition-colors"
-                title="Auto-calculate ledger balances, sort dates, and update totals"
-              >
-                <Calculator className="w-3 h-3 text-blue-600" />
-                <span>Auto-Calculate &amp; Sort</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={openAiLedgerModal}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 rounded-md text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+                  title="Auto-generate realistic Bangladeshi bank statement ledger with dependencies"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Generate AI Ledger</span>
+                </button>
+                <button
+                  onClick={handleRecalculateAll}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md text-[11px] font-semibold border border-blue-200 transition-colors"
+                  title="Auto-calculate ledger balances, sort dates, and update totals"
+                >
+                  <Calculator className="w-3 h-3 text-blue-600" />
+                  <span>Auto-Calculate &amp; Sort</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -875,6 +947,17 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {template.category === "banking" && (
+                    <button
+                      type="button"
+                      onClick={openAiLedgerModal}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all whitespace-nowrap shrink-0 cursor-pointer"
+                      title="Generate realistic human Bangladeshi ledger from start/end date and opening/closing balance"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Generate AI Ledger</span>
+                    </button>
+                  )}
                   <button
                     onClick={handleAddTableRow}
                     title="Add a transaction row (placed in date order)"
@@ -1081,6 +1164,193 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
           )}
         </div>
       </div>
+
+      {/* AI Bangladeshi Ledger Generator Modal */}
+      {isAiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-2xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Generate AI Bangladeshi Statement Ledger</h3>
+                  <p className="text-[11px] text-blue-100">
+                    Trained on authentic Bangladeshi bank ledgers &amp; fee/tax dependencies
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(false)}
+                className="text-white/80 hover:text-white text-lg font-bold leading-none px-2 py-1 rounded-md hover:bg-white/10"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleGenerateAiLedger} className="p-5 space-y-4 text-xs">
+              {/* Row count + quick presets */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-neutral-800">
+                    How many ledger transactions to generate?
+                  </label>
+                  <span className="text-[11px] text-neutral-500 font-mono">
+                    ~{Math.max(1, Math.ceil((parseInt(aiRowCount, 10) || 60) / 28))} PDF pages
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={4}
+                    max={600}
+                    required
+                    value={aiRowCount}
+                    onChange={(e) => setAiRowCount(e.target.value)}
+                    className="w-28 px-3 py-2 border border-neutral-300 rounded-lg font-mono text-xs font-bold focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {[23, 52, 81, 110, 146, 200, 330].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setAiRowCount(String(preset))}
+                        className={`px-2 py-1 rounded-md font-mono text-[11px] font-semibold border transition-colors ${
+                          Number(aiRowCount) === preset
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Start Date & End Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-neutral-800 mb-1">
+                    Statement Start Date
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 01 Jan 2026"
+                    value={aiStartDate}
+                    onChange={(e) => setAiStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-neutral-800 mb-1">
+                    Statement End Date
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 17 Oct 2026"
+                    value={aiEndDate}
+                    onChange={(e) => setAiEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Opening Balance & Target End Balance */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-neutral-800 mb-1">
+                    Opening Balance (BDT)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 384,578.87"
+                    value={aiOpeningBal}
+                    onChange={(e) => setAiOpeningBal(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-xs font-bold text-neutral-900 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-neutral-800 mb-1">
+                    Target End Balance (BDT)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 332,784.69"
+                    value={aiClosingBal}
+                    onChange={(e) => setAiClosingBal(e.target.value)}
+                    className="w-full px-3 py-2 border border-emerald-300 bg-emerald-50/40 rounded-lg font-mono text-xs font-bold text-emerald-900 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Pattern Profile */}
+              <div>
+                <label className="block font-bold text-neutral-800 mb-1">
+                  Bangladeshi Statement Pattern Style
+                </label>
+                <select
+                  value={aiProfile}
+                  onChange={(e) => setAiProfile(e.target.value as BangladeshiLedgerProfile)}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-white text-xs font-semibold text-neutral-800 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="auto">Auto-Match Account Type ({data.accountType || "City Bank"})</option>
+                  <option value="islamic_modern">
+                    Citytouch / Finacle-to-Ababil, RATM DEP, ATM WDL &amp; Card Payments (Modern BD)
+                  </option>
+                  <option value="remittance_eftn">
+                    Foreign Remittance (TT-R + 2.5% -INC), EFTN Bursts &amp; NPSB + Charge Pairs
+                  </option>
+                  <option value="retail_business">
+                    Retail &amp; Business Mix (Sequential Cash Deposits, Cheque Withdrawals, POS &amp; bKash/Nagad)
+                  </option>
+                </select>
+              </div>
+
+              {/* Dependency Toggle */}
+              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50/60 border border-blue-200/80 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aiIncludeDeps}
+                  onChange={(e) => setAiIncludeDeps(e.target.checked)}
+                  className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div className="space-y-0.5">
+                  <div className="font-bold text-blue-950">
+                    Include Real Bangladeshi Transaction Dependencies
+                  </div>
+                  <div className="text-[11px] text-blue-800/80 leading-snug">
+                    Automatically pairs NPSB transfers with BDT 10.00 fee, SSC ATM withdrawals with BDT 46.00 fee, split 80k+20k same-day ATM withdrawals, clearing cheques with BACH fee, half-yearly profit/interest + 15% source tax + service charge + 15% VAT, and annual SMS (345.00) &amp; Debit Card (690.00) fees.
+                  </div>
+                </div>
+              </label>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-700 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Generate Real Ledger</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
