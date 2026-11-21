@@ -207,14 +207,23 @@ export const CanvasElement: React.FC<CanvasElementProps> = ({
                   className="pointer-events-none select-none shrink-0"
                   style={{ width: `${7.28 * zoom}px`, height: `${7.28 * zoom}px` }}
                 />
-                <div className="flex items-center whitespace-nowrap">
-                  <span className="font-bold text-black">16234</span>
-                  <span className="font-normal text-[#646464] ml-0.5">(Local)</span>
-                  <span className="font-bold text-black" style={{ marginLeft: `${16 * zoom}px` }}>
-                    +880 2 8331040
-                  </span>
-                  <span className="font-normal text-[#646464] ml-0.5">(Overseas)</span>
-                </div>
+                {(() => {
+                  const parts = content.split(/\s{2,}/);
+                  const rawLocal = (parts[0] || "16234 (Local)").trim();
+                  const rawOverseas = (parts[1] || "+880 2 8331040 (Overseas)").trim();
+                  const lm = rawLocal.match(/^(.+?)\s*(\(.+\))$/);
+                  const om = rawOverseas.match(/^(.+?)\s*(\(.+\))$/);
+                  return (
+                    <div className="flex items-center whitespace-nowrap">
+                      <span className="font-bold text-black">{lm ? lm[1] : rawLocal}</span>
+                      {lm && <span className="font-normal text-[#646464] ml-0.5">{lm[2]}</span>}
+                      <span className="font-bold text-black" style={{ marginLeft: `${16 * zoom}px` }}>
+                        {om ? om[1] : rawOverseas}
+                      </span>
+                      {om && <span className="font-normal text-[#646464] ml-0.5">{om[2]}</span>}
+                    </div>
+                  );
+                })()}
               </div>
             ) : element.id === "elem-footer-notes" ? (
               <div style={{ lineHeight: 1.18 }}>

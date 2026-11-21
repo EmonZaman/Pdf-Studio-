@@ -513,7 +513,7 @@ export async function generatePdf(
           if (el.id === "elem-footer-notes") {
             const notesTitleY = (isP1 ? 47.9 : 44.432) - dy;
             const line1Y = (isP1 ? 39.963 : 36.495) - dy;
-            const line2Y = (isP1 ? 33.028 : 29.559) - dy;
+            const lineStep = 6.935;
             page.drawText("Notes:", {
               x: 41.75 + dx,
               y: notesTitleY,
@@ -521,20 +521,49 @@ export async function generatePdf(
               font: fontBold,
               color: rgb(0, 0, 0),
             });
-            page.drawText("This is a system generated statement and requires no signature. Please advise the bank of any discrepancy ", {
-              x: 41.75 + dx,
-              y: line1Y,
-              size: 6,
-              font: fontRegular,
-              color: rgb(0.349, 0.349, 0.349),
-            });
-            page.drawText("within 14 days of receipt of this statement (if any), otherwise, this statement will be deemed correct.", {
-              x: 41.75 + dx,
-              y: line2Y,
-              size: 6,
-              font: fontRegular,
-              color: rgb(0.349, 0.349, 0.349),
-            });
+
+            const defaultNotes =
+              "This is a system generated statement and requires no signature. Please advise the bank of any discrepancy within 14 days of receipt of this statement (if any), otherwise, this statement will be deemed correct.";
+            const rawNotes =
+              data.notesDisclaimer !== undefined
+                ? String(data.notesDisclaimer).trim()
+                : defaultNotes;
+
+            let noteLines: string[] = [];
+            if (rawNotes === defaultNotes) {
+              noteLines = [
+                "This is a system generated statement and requires no signature. Please advise the bank of any discrepancy ",
+                "within 14 days of receipt of this statement (if any), otherwise, this statement will be deemed correct.",
+              ];
+            } else if (rawNotes) {
+              const maxW = 288 + dw;
+              for (const paragraph of rawNotes.split(/\r?\n/)) {
+                const words = paragraph.trim().split(/\s+/).filter(Boolean);
+                let current = "";
+                for (const word of words) {
+                  const candidate = current ? `${current} ${word}` : word;
+                  if (fontRegular.widthOfTextAtSize(candidate, 6) <= maxW || !current) {
+                    current = candidate;
+                  } else {
+                    noteLines.push(current);
+                    current = word;
+                  }
+                }
+                if (current) noteLines.push(current);
+              }
+            }
+
+            let curY = line1Y;
+            for (const nLine of noteLines.slice(0, 4)) {
+              page.drawText(nLine, {
+                x: 41.75 + dx,
+                y: curY,
+                size: 6,
+                font: fontRegular,
+                color: rgb(0.349, 0.349, 0.349),
+              });
+              curY -= lineStep;
+            }
             continue;
           }
 
@@ -544,7 +573,7 @@ export async function generatePdf(
             if (embeddedGlobeIcon) {
               page.drawImage(embeddedGlobeIcon, { x: 341.35 + dx, y: iconY, width: 7.28, height: 7.28 });
             }
-            page.drawText(String(data.website || "citybankplc.com"), {
+            page.drawText(String(data.website ?? "citybankplc.com"), {
               x: 354.75 + dx,
               y: textY,
               size: 7,
@@ -560,10 +589,34 @@ export async function generatePdf(
             if (embeddedPhoneIcon) {
               page.drawImage(embeddedPhoneIcon, { x: 427.6 + dx, y: iconY, width: 7.28, height: 7.28 });
             }
-            page.drawText("16234", { x: 441 + dx, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
-            page.drawText("(Local)", { x: 462.406 + dx, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
-            page.drawText("+880 2 8331040", { x: 500.3 + dx, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
-            page.drawText(" (Overseas)", { x: 551.092 + dx, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
+            const rawLocal = String(data.phoneLocal ?? "16234 (Local)").trim();
+            const rawOverseas = String(data.phoneOverseas ?? "+880 2 8331040 (Overseas)").trim();
+
+            const localMatch = rawLocal.match(/^(.+?)\s*(\(.+\))$/);
+            const localMain = localMatch ? localMatch[1] : rawLocal;
+            const localSub = localMatch ? localMatch[2] : "";
+
+            page.drawText(localMain, { x: 441 + dx, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
+            if (localSub) {
+              const localSubX =
+                localMain === "16234"
+                  ? 462.406 + dx
+                  : 441 + dx + fontBold.widthOfTextAtSize(localMain, 7) + 1.95;
+              page.drawText(localSub, { x: localSubX, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
+            }
+
+            const overseasMatch = rawOverseas.match(/^(.+?)\s*(\(.+\))$/);
+            const overseasMain = overseasMatch ? overseasMatch[1] : rawOverseas;
+            const overseasSub = overseasMatch ? ` ${overseasMatch[2]}` : "";
+
+            page.drawText(overseasMain, { x: 500.3 + dx, y: textY, size: 7, font: fontBold, color: rgb(0, 0, 0) });
+            if (overseasSub) {
+              const overseasSubX =
+                overseasMain === "+880 2 8331040"
+                  ? 551.092 + dx
+                  : 500.3 + dx + fontBold.widthOfTextAtSize(overseasMain, 7);
+              page.drawText(overseasSub, { x: overseasSubX, y: textY, size: 7, font: fontRegular, color: rgb(0.392, 0.392, 0.392) });
+            }
             continue;
           }
 
