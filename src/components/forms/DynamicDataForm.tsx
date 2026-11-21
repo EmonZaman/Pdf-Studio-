@@ -20,6 +20,8 @@ import {
 import {
   generateBangladeshiAiLedger,
   BangladeshiLedgerProfile,
+  parseFlexibleDate,
+  formatStatementDate,
 } from "@/lib/ai-ledger-generator";
 import { VERIFY_URL } from "@/lib/verify-config";
 import {
@@ -57,6 +59,118 @@ const FORM_TABS: { id: FormTab; label: string; icon: React.ElementType }[] = [
   { id: "transactions", label: "Ledger", icon: TableIcon },
   { id: "footer", label: "Footer", icon: ShieldAlert },
 ];
+
+// Converts a statement date string ("01 Jan 2026" or "14/11/2022") to "YYYY-MM-DD" for <input type="date">
+function toIsoDateValue(raw: string): string {
+  if (!raw || !raw.trim()) return "";
+  const d = parseFlexibleDate(raw, new Date(NaN));
+  if (isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Converts "YYYY-MM-DD" from <input type="date"> back to the statement's date format ("01 Jan 2026" or "14/11/2022")
+function fromIsoDateValue(iso: string, existingValue?: string): string {
+  if (!iso) return "";
+  const d = parseFlexibleDate(iso, new Date(NaN));
+  if (isNaN(d.getTime())) return iso;
+  const useSlash = Boolean(existingValue && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(existingValue.trim()));
+  return formatStatementDate(d, useSlash);
+}
+
+// Updates any embedded YYYY-MM-DD or YYMMDD date stamps inside a transaction description when its date changes
+function syncEmbeddedDescriptionDate(description: string, newDateStr: string): string {
+  if (!description || !newDateStr) return description;
+  const d = parseFlexibleDate(newDateStr, new Date(NaN));
+  if (isNaN(d.getTime())) return description;
+  const yyyy = String(d.getFullYear());
+  const yy = yyyy.slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  let updated = description;
+  // Replace YYYY-MM-DD (e.g. -2026-01-03 11:45:38)
+  updated = updated.replace(/\b20\d{2}-\d{2}-\d{2}\b/g, `${yyyy}-${mm}-${dd}`);
+  // Replace 18-digit Citytouch NPSB compact timestamp prefix YYMMDD (e.g. - 260103114538953654 -)
+  updated = updated.replace(/\b(\d{6})(\d{12})\b/g, `${yy}${mm}${dd}$2`);
+  // Replace DD/MM/YY in BACH clearing charges (e.g. 13/05/26)
+  updated = updated.replace(/\b\d{2}\/\d{2}\/\d{2}\b/g, `${dd}/${mm}/${yy}`);
+  return updated;
+}
+
+interface StatementDateInputProps {
+  value: string;
+  onChange: (newVal: string) => void;
+  onCommit?: (newVal: string) => void;
+  placeholder?: string;
+  className?: string;
+  compact?: boolean;
+  disabled?: boolean;
+}
+
+const StatementDateInput: React.FC<StatementDateInputProps> = ({
+  value,
+  onChange,
+  onCommit,
+  placeholder = "DD Mmm YYYY",
+  className = "",
+  compact = false,
+  disabled = false,
+}) => {
+  const pickerRef = useRef<HTMLInputElement>(null);
+
+  const openPicker = () => {
+    if (disabled) return;
+    try {
+      pickerRef.current?.showPicker?.();
+    } catch {
+      pickerRef.current?.focus();
+    }
+  };
+
+  return (
+    <div className="relative flex items-center w-full">
+      <input
+        type="text"
+        disabled={disabled}
+        placeholder={placeholder}
+        value={value}
+        onClick={openPicker}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => onCommit?.(value)}
+        className={`${className} ${compact ? "pr-6" : "pr-8"} cursor-pointer`}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        disabled={disabled}
+        onClick={openPicker}
+        title="Open calendar"
+        className={`absolute right-1.5 text-neutral-400 hover:text-blue-600 transition-colors cursor-pointer ${
+          disabled ? "opacity-30 pointer-events-none" : ""
+        }`}
+      >
+        <Calendar className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
+      </button>
+      <input
+        ref={pickerRef}
+        type="date"
+        tabIndex={-1}
+        aria-hidden="true"
+        value={toIsoDateValue(value)}
+        onChange={(e) => {
+          if (!e.target.value) return;
+          const formatted = fromIsoDateValue(e.target.value, value);
+          onChange(formatted);
+          onCommit?.(formatted);
+        }}
+        className="sr-only pointer-events-none"
+      />
+    </div>
+  );
+};
 
 // Small live QR preview. Encodes the same string the PDF engine prints.
 const QrPreview: React.FC<{ value: string; customSrc?: string; defaultSrc?: string }> = ({ value, customSrc, defaultSrc }) => {
@@ -292,6 +406,9 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
       ...updatedRows[index],
       [key]: value,
     };
+    if (key === "date" && typeof updatedRows[index].description === "string") {
+      updatedRows[index].description = syncEmbeddedDescriptionDate(updatedRows[index].description, String(value));
+    }
 
     if (template.category === "banking" && (key === "withdrawal" || key === "deposit")) {
       // Calculate running balance and totals while preserving raw user keystrokes
@@ -311,10 +428,19 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
     }
   };
 
-  // On blur of date or numbers: format amounts with commas and sort chronologically
-  const handleTableRowBlur = (index: number, key: string) => {
+  // On blur or calendar selection of date or numbers: format amounts with commas and sort chronologically
+  const handleTableRowBlur = (index: number, key: string, overrideValue?: string) => {
     if (template.category === "banking") {
       let rowsToProcess = [...tableRows];
+      if (overrideValue !== undefined) {
+        rowsToProcess[index] = {
+          ...rowsToProcess[index],
+          [key]: overrideValue,
+          ...(key === "date" && typeof rowsToProcess[index]?.description === "string"
+            ? { description: syncEmbeddedDescriptionDate(rowsToProcess[index].description, overrideValue) }
+            : {}),
+        };
+      }
       if (key === "date") {
         const edited = rowsToProcess[index];
         rowsToProcess = sortTransactionsChronologically(rowsToProcess);
@@ -514,13 +640,13 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Date of Generation
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Date of Generation</span>
                   </label>
-                  <input
-                    type="text"
-                    value={data.generationDate || ""}
-                    onChange={(e) => handleFieldChange("generationDate", e.target.value)}
+                  <StatementDateInput
+                    value={String(data.generationDate || "")}
+                    onChange={(val) => handleFieldChange("generationDate", val)}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 font-mono"
                   />
                 </div>
@@ -908,11 +1034,10 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                     <Calendar className="w-3.5 h-3.5 text-neutral-500" />
                     <span>Opening Date</span>
                   </label>
-                  <input
-                    type="text"
+                  <StatementDateInput
                     placeholder="DD Mmm YYYY"
-                    value={data.openingDate || ""}
-                    onChange={(e) => handleFieldChange("openingDate", e.target.value)}
+                    value={String(data.openingDate || "")}
+                    onChange={(val) => handleFieldChange("openingDate", val)}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 font-mono"
                   />
                 </div>
@@ -922,11 +1047,10 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                     <Calendar className="w-3.5 h-3.5 text-neutral-500" />
                     <span>Statement End Date</span>
                   </label>
-                  <input
-                    type="text"
+                  <StatementDateInput
                     placeholder="DD Mmm YYYY"
-                    value={data.statementEndDate || ""}
-                    onChange={(e) => handleFieldChange("statementEndDate", e.target.value)}
+                    value={String(data.statementEndDate || "")}
+                    onChange={(val) => handleFieldChange("statementEndDate", val)}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 font-mono"
                   />
                 </div>
@@ -1020,14 +1144,18 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                               {idx + 1}
                             </td>
                             <td className="py-1.5 px-2">
-                              <input
-                                type="text"
-                                placeholder="DD Mmm YYYY"
-                                value={row.date || ""}
-                                onChange={(e) => handleTableRowChange(idx, "date", e.target.value)}
-                                onBlur={() => handleTableRowBlur(idx, "date")}
-                                className="w-full px-2 py-1 border border-transparent hover:border-neutral-300 focus:border-blue-500 rounded text-xs font-mono"
-                              />
+                              {isOpening ? (
+                                <span className="px-2 py-1 text-neutral-400 font-mono text-xs">—</span>
+                              ) : (
+                                <StatementDateInput
+                                  compact
+                                  placeholder="DD Mmm YYYY"
+                                  value={String(row.date || "")}
+                                  onChange={(val) => handleTableRowChange(idx, "date", val)}
+                                  onCommit={(val) => handleTableRowBlur(idx, "date", val)}
+                                  className="w-full px-2 py-1 border border-transparent hover:border-neutral-300 focus:border-blue-500 rounded text-xs font-mono"
+                                />
+                              )}
                             </td>
                             <td className="py-1.5 px-2">
                               <input
@@ -1233,28 +1361,26 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
               {/* Start Date & End Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-neutral-800 mb-1">
-                    Statement Start Date
+                  <label className="block font-bold text-neutral-800 mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Statement Start Date</span>
                   </label>
-                  <input
-                    type="text"
-                    required
+                  <StatementDateInput
                     placeholder="e.g. 01 Jan 2026"
                     value={aiStartDate}
-                    onChange={(e) => setAiStartDate(e.target.value)}
+                    onChange={(val) => setAiStartDate(val)}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-neutral-800 mb-1">
-                    Statement End Date
+                  <label className="block font-bold text-neutral-800 mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Statement End Date</span>
                   </label>
-                  <input
-                    type="text"
-                    required
+                  <StatementDateInput
                     placeholder="e.g. 17 Oct 2026"
                     value={aiEndDate}
-                    onChange={(e) => setAiEndDate(e.target.value)}
+                    onChange={(val) => setAiEndDate(val)}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
