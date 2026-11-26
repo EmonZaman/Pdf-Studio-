@@ -344,7 +344,7 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
     setActiveTab("transactions");
     highlightRow(
       1,
-      `Generated ${res.transactions.length - 1} authentic Bangladeshi ledger transactions (${res.dependencyCount} linked fee/tax/incentive dependencies) from ${res.openingDate} to ${res.statementEndDate} matching Opening Balance ${res.openingBalance} → End Balance ${res.availableBalance}.`
+      `Generated ${res.transactions.length - 1} transactions [${res.personaSummary}] (${res.dependencyCount} linked dependencies) from ${res.openingDate} to ${res.statementEndDate} · Opening ${res.openingBalance} → End ${res.availableBalance}.`
     );
   };
 
@@ -1469,22 +1469,25 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
               {/* Pattern Profile */}
               <div>
                 <label className="block font-bold text-neutral-800 mb-1">
-                  Bangladeshi Statement Pattern Style
+                  Bangladeshi Financial Persona / Archetype
                 </label>
                 <select
                   value={aiProfile}
                   onChange={(e) => setAiProfile(e.target.value as BangladeshiLedgerProfile)}
                   className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-white text-xs font-semibold text-neutral-800 focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="auto">Auto-Match Account Type ({data.accountType || "City Bank"})</option>
-                  <option value="islamic_modern">
-                    Citytouch / Finacle-to-Ababil, RATM DEP, ATM WDL &amp; Card Payments (Modern BD)
+                  <option value="auto">Auto — Smart Realistic Variation (Unique Persona Every Time)</option>
+                  <option value="salaried_executive">
+                    Salaried Corporate / Executive (Monthly Salary, Rent, Utilities, POS &amp; Card Bills)
+                  </option>
+                  <option value="sme_business">
+                    SME Business / Trader (Customer Deposits, Supplier EFTN/NPSB, Clearing &amp; Cheques)
                   </option>
                   <option value="remittance_eftn">
-                    Foreign Remittance (TT-R + 2.5% -INC), EFTN Bursts &amp; NPSB + Charge Pairs
+                    Freelancer / Remittance Earner (TT-R + 2.5% -INC, EFTN/NPSB Bursts &amp; Loan EMI)
                   </option>
-                  <option value="retail_business">
-                    Retail &amp; Business Mix (Sequential Cash Deposits, Cheque Withdrawals, POS &amp; bKash/Nagad)
+                  <option value="islamic_modern">
+                    Modern Islamic / Personal Savings (Finacle-Ababil, RATM DEP, ATM WDL &amp; Card Payments)
                   </option>
                 </select>
               </div>
