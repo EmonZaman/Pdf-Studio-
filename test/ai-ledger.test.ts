@@ -74,4 +74,34 @@ describe("AI Bangladeshi Statement Ledger Generator", () => {
     expect(res.availableBalance).toBe("4,014,757.24");
     expect(res.transactions[res.transactions.length - 1].balance).toBe("4,014,757.24");
   });
+
+  it("produces diverse, non-repetitive transactions and amounts within and across statements", () => {
+    const opts = {
+      rowCount: 80,
+      startDate: "01 Jan 2026",
+      endDate: "17 Oct 2026",
+      openingBalance: "384,578.87",
+      targetClosingBalance: "332,784.69",
+      accountNo: "1781920006484",
+      accountType: "ISLAMIC SAVINGS A/C - DST",
+      profile: "islamic_modern" as const,
+      includeDependencies: true,
+    };
+
+    const run1 = generateBangladeshiAiLedger(opts);
+    const run2 = generateBangladeshiAiLedger(opts);
+
+    // Check high amount uniqueness within a single statement (excluding fixed bank fee rows <= 700 BDT)
+    const nonFeeAmounts = run1.transactions
+      .slice(1)
+      .map((t) => (parseAmount(t.withdrawal) > 0 ? parseAmount(t.withdrawal) : parseAmount(t.deposit)))
+      .filter((a) => a > 700);
+    const uniqueRatio = new Set(nonFeeAmounts).size / Math.max(1, nonFeeAmounts.length);
+    expect(uniqueRatio).toBeGreaterThan(0.6);
+
+    // Check that two separate generated statements do not produce identical descriptions/amounts
+    const desc1 = run1.transactions.slice(1).map((t) => t.description).join("|");
+    const desc2 = run2.transactions.slice(1).map((t) => t.description).join("|");
+    expect(desc1).not.toBe(desc2);
+  });
 });
