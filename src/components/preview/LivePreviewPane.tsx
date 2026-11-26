@@ -4,13 +4,14 @@ import React, { useEffect, useState } from "react";
 import { DocumentTemplate, DocumentData } from "@/types/template";
 import { generatePdf } from "@/lib/engine/pdf-generator";
 import { computeDocumentLayout } from "@/lib/engine/layout";
-import { Download, RefreshCw, FileWarning, Eye } from "lucide-react";
+import { Download, RefreshCw, FileWarning, Eye, PanelRightClose } from "lucide-react";
 import { PdfCanvasStack } from "./PdfCanvasStack";
 
 interface LivePreviewPaneProps {
   template: DocumentTemplate;
   data: DocumentData;
   onDownload: () => void;
+  onCollapse?: () => void;
 }
 
 const REBUILD_DELAY_MS = 300;
@@ -19,7 +20,7 @@ const REBUILD_DELAY_MS = 300;
  * Real vector PDF preview. Every edit re-renders the actual PDF output
  * (the same bytes that get exported), drawn page by page with pdf.js.
  */
-export const LivePreviewPane: React.FC<LivePreviewPaneProps> = ({ template, data, onDownload }) => {
+export const LivePreviewPane: React.FC<LivePreviewPaneProps> = ({ template, data, onDownload, onCollapse }) => {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [isRendering, setIsRendering] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +86,17 @@ export const LivePreviewPane: React.FC<LivePreviewPaneProps> = ({ template, data
             <Download className="w-3.5 h-3.5" />
             <span>Download</span>
           </button>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              title="Collapse PDF preview to sidebar for wider editing"
+              className="flex items-center gap-1 px-2 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-md text-xs font-semibold border border-neutral-200 transition-colors cursor-pointer"
+            >
+              <PanelRightClose className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">Hide</span>
+            </button>
+          )}
         </div>
       </div>
 

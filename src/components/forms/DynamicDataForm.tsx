@@ -126,7 +126,7 @@ const StatementDateInput: React.FC<StatementDateInputProps> = ({
     try {
       pickerRef.current?.showPicker?.();
     } catch {
-      pickerRef.current?.focus();
+      // Fallback: native click on the overlaid date input handles opening
     }
   };
 
@@ -137,37 +137,34 @@ const StatementDateInput: React.FC<StatementDateInputProps> = ({
         disabled={disabled}
         placeholder={placeholder}
         value={value}
-        onClick={openPicker}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => onCommit?.(value)}
-        className={`${className} ${compact ? "pr-6" : "pr-8"} cursor-pointer`}
+        className={`${className} ${compact ? "pr-6" : "pr-8"}`}
       />
-      <button
-        type="button"
-        tabIndex={-1}
-        disabled={disabled}
-        onClick={openPicker}
+      <div
+        className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded hover:bg-blue-50 text-neutral-400 hover:text-blue-600 transition-colors ${
+          compact ? "w-5 h-5" : "w-6 h-6"
+        } ${disabled ? "opacity-30 pointer-events-none" : "cursor-pointer"}`}
         title="Open calendar"
-        className={`absolute right-1.5 text-neutral-400 hover:text-blue-600 transition-colors cursor-pointer ${
-          disabled ? "opacity-30 pointer-events-none" : ""
-        }`}
+        onClick={openPicker}
       >
-        <Calendar className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
-      </button>
-      <input
-        ref={pickerRef}
-        type="date"
-        tabIndex={-1}
-        aria-hidden="true"
-        value={toIsoDateValue(value)}
-        onChange={(e) => {
-          if (!e.target.value) return;
-          const formatted = fromIsoDateValue(e.target.value, value);
-          onChange(formatted);
-          onCommit?.(formatted);
-        }}
-        className="sr-only pointer-events-none"
-      />
+        <Calendar className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} pointer-events-none`} />
+        <input
+          ref={pickerRef}
+          type="date"
+          tabIndex={-1}
+          disabled={disabled}
+          aria-label="Pick date from calendar"
+          value={toIsoDateValue(value)}
+          onChange={(e) => {
+            if (!e.target.value) return;
+            const formatted = fromIsoDateValue(e.target.value, value);
+            onChange(formatted);
+            onCommit?.(formatted);
+          }}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+      </div>
     </div>
   );
 };
@@ -267,7 +264,7 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
 
     // If opening balance changed in banking template, recalculate all running balances automatically
     if (key === "openingBalance" && template.category === "banking") {
-      const calc = recalculateStatementBalances(value, tableRows, true);
+      const calc = recalculateStatementBalances(value, tableRows, false);
       updated.totalDeposits = calc.totalDeposits;
       updated.totalWithdrawals = calc.totalWithdrawals;
       updated.availableBalance = calc.availableBalance;
@@ -275,6 +272,20 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
     }
 
     onChange(updated);
+  };
+
+  const handleOpeningBalanceBlur = () => {
+    if (template.category !== "banking") return;
+    const formatted = formatCurrency(parseAmount(data.openingBalance));
+    const calc = recalculateStatementBalances(formatted, tableRows, true);
+    onChange({
+      ...data,
+      openingBalance: formatted,
+      totalDeposits: calc.totalDeposits,
+      totalWithdrawals: calc.totalWithdrawals,
+      availableBalance: calc.availableBalance,
+      [tableDataKey]: calc.updatedTransactions,
+    });
   };
 
   const [isRegistering, setIsRegistering] = useState(false);
@@ -642,9 +653,36 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Statement Start Date</span>
+                  </label>
+                  <StatementDateInput
+                    placeholder="DD Mmm YYYY"
+                    value={String(data.openingDate || "")}
+                    onChange={(val) => handleFieldChange("openingDate", val)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Statement End Date</span>
+                  </label>
+                  <StatementDateInput
+                    placeholder="DD Mmm YYYY"
+                    value={String(data.statementEndDate || "")}
+                    onChange={(val) => handleFieldChange("statementEndDate", val)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-neutral-500" />
                     <span>Date of Generation</span>
                   </label>
                   <StatementDateInput
+                    placeholder="DD Mmm YYYY"
                     value={String(data.generationDate || "")}
                     onChange={(val) => handleFieldChange("generationDate", val)}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 font-mono"
@@ -966,8 +1004,9 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                   </span>
                   <input
                     type="text"
-                    value={data.openingBalance || ""}
+                    value={data.openingBalance ?? ""}
                     onChange={(e) => handleFieldChange("openingBalance", e.target.value)}
+                    onBlur={handleOpeningBalanceBlur}
                     placeholder="0.00"
                     className="w-full pl-12 pr-4 py-2.5 bg-white border-2 border-blue-400 focus:border-blue-600 rounded-lg text-sm font-mono font-black text-neutral-900 focus:ring-2 focus:ring-blue-500 outline-hidden shadow-xs"
                   />
@@ -1198,8 +1237,19 @@ export const DynamicDataForm: React.FC<DynamicDataFormProps> = ({
                                 className="w-full px-2 py-1 border border-transparent hover:border-neutral-300 focus:border-blue-500 rounded text-xs text-right font-mono text-emerald-700 font-medium"
                               />
                             </td>
-                            <td className="py-1.5 px-3 text-right font-mono font-bold text-neutral-900 bg-blue-50/20">
-                              {row.balance || "0.00"}
+                            <td className="py-1.5 px-2 text-right font-mono font-bold text-neutral-900 bg-blue-50/20">
+                              {isOpening ? (
+                                <input
+                                  type="text"
+                                  value={data.openingBalance ?? ""}
+                                  onChange={(e) => handleFieldChange("openingBalance", e.target.value)}
+                                  onBlur={handleOpeningBalanceBlur}
+                                  title="Edit Opening Balance — automatically recalculates all rows"
+                                  className="w-full px-2 py-1 bg-white border border-blue-300 hover:border-blue-500 focus:border-blue-600 rounded text-xs text-right font-mono font-bold text-blue-900 focus:ring-2 focus:ring-blue-500"
+                                />
+                              ) : (
+                                <span className="px-1">{row.balance || "0.00"}</span>
+                              )}
                             </td>
                             <td className="py-1.5 px-2 text-center">
                               {!isOpening && (

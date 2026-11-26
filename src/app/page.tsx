@@ -18,6 +18,7 @@ import { LivePreviewPane } from "@/components/preview/LivePreviewPane";
 import { BatchExportModal } from "@/components/batch/BatchExportModal";
 import { TemplateManagerModal } from "@/components/templates/TemplateManagerModal";
 import { PdfImportModal } from "@/components/import/PdfImportModal";
+import { PanelRightOpen, Eye } from "lucide-react";
 
 export default function StudioPage() {
   // Available templates
@@ -48,6 +49,7 @@ export default function StudioPage() {
   const [unit, setUnit] = useState<UnitType>("pt");
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isPreviewCollapsed, setIsPreviewCollapsed] = useState<boolean>(false);
 
   // Modals
   const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
@@ -565,8 +567,12 @@ export default function StudioPage() {
       {/* VIEW MODE 2: DYNAMIC DATA FORM BUILDER */}
       {activeView === "form" && (
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
-          {/* Left half: editable data */}
-          <div className="flex-1 lg:flex-none lg:w-1/2 min-h-0 min-w-0 flex flex-col bg-white">
+          {/* Left half (or full width when PDF preview is collapsed to sidebar): editable data */}
+          <div
+            className={`flex-1 min-h-0 min-w-0 flex flex-col bg-white transition-all duration-200 ${
+              isPreviewCollapsed ? "lg:flex-1" : "lg:flex-none lg:w-1/2"
+            }`}
+          >
             <DynamicDataForm
               template={template}
               data={data}
@@ -575,10 +581,35 @@ export default function StudioPage() {
             />
           </div>
 
-          {/* Right half: live PDF output */}
-          <div className="h-[65vh] lg:h-auto lg:flex-none lg:w-1/2 min-h-0 min-w-0 border-t lg:border-t-0 lg:border-l border-neutral-200">
-            <LivePreviewPane template={template} data={data} onDownload={handleExportPdf} />
-          </div>
+          {/* Right half: live PDF output OR collapsed sidebar rail */}
+          {isPreviewCollapsed ? (
+            <div className="shrink-0 lg:w-12 bg-neutral-100 border-t lg:border-t-0 lg:border-l border-neutral-200 flex lg:flex-col items-center justify-between lg:justify-start py-2 px-3 lg:py-3 lg:px-0 gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPreviewCollapsed(false)}
+                title="Expand Live PDF Preview (50/50 split)"
+                className="flex lg:flex-col items-center gap-2 px-3 py-1.5 lg:px-2 lg:py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
+              >
+                <PanelRightOpen className="w-4 h-4 shrink-0" />
+                <span className="text-[11px] font-bold lg:[writing-mode:vertical-rl] lg:rotate-180 tracking-wide whitespace-nowrap">
+                  Show PDF Preview
+                </span>
+              </button>
+              <div className="flex lg:flex-col items-center gap-1 text-[10px] font-mono text-neutral-500">
+                <Eye className="w-3.5 h-3.5 text-neutral-400" />
+                <span>{totalPages}p</span>
+              </div>
+            </div>
+          ) : (
+            <div className="h-[65vh] lg:h-auto lg:flex-none lg:w-1/2 min-h-0 min-w-0 border-t lg:border-t-0 lg:border-l border-neutral-200">
+              <LivePreviewPane
+                template={template}
+                data={data}
+                onDownload={handleExportPdf}
+                onCollapse={() => setIsPreviewCollapsed(true)}
+              />
+            </div>
+          )}
         </div>
       )}
 
